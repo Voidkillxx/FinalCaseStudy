@@ -4,17 +4,25 @@ import { Link } from 'react-router-dom';
 import '../Styles/CategoryCard.css'; 
 
 const CategoryCard = ({ category }) => {
+  // Use correct field names from Laravel DB
+  // Fallback to 'name' and 'imageUrl' if older format passed
+  const name = category.category_name || category.name;
+  const image = category.image_url || category.imageUrl;
+
   return (
     <Card className="category-card">
-      <Link to={`/products?category=${category.id}`} className="category-card-link">
+      {/* Use the slug if available, otherwise ID */}
+      <Link to={`/products?category=${category.slug || category.id}`} className="category-card-link">
         <Card.Img
           variant="top"
-          src={category.imageUrl}
-          alt={category.name}
+          src={image || '/img/placeholder.png'} 
+          alt={name}
           className="category-card-image"
+          // Add error handling for broken images
+          onError={(e) => { e.target.onerror = null; e.target.src = '/img/placeholder.png'; }}
         />
         <Card.Body className="category-card-body">
-          <Card.Title className="category-card-title">{category.name}</Card.Title>
+          <Card.Title className="category-card-title">{name}</Card.Title>
           <div className="category-card-browse">
             Browse →
           </div>

@@ -25,8 +25,7 @@ class ProductController extends Controller
         if ($request->filled('search')) {
             $searchTerm = $request->search;
             $query->where(function($q) use ($searchTerm) {
-                $q->where('product_name', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('description', 'like', '%' . $searchTerm . '%');
+                $q->where('product_name', 'like', '%' . $searchTerm . '%');
             });
         }
 
@@ -80,16 +79,16 @@ class ProductController extends Controller
         $product = Product::find($id);
         if (!$product) return response()->json(['message' => 'Product not found'], 404);
 
-        Log::info("Updating Product ID $id. Data received:", $request->all());
-
+        // FIX: Ensure 'discount' is validated here. Use nullable so it's not required.
         $validated = $request->validate([
-            'product_name' => 'sometimes|string|max:255', // MUST be product_name
+            'product_name' => 'sometimes|string|max:255',
             'price'        => 'sometimes|numeric|min:0',
             'stock'        => 'sometimes|integer|min:0',
             'category_id'  => 'sometimes|exists:categories,id',
             'description'  => 'sometimes|string',
-            'image_url'    => 'sometimes|string', // MUST be image_url
+            'image_url'    => 'sometimes|string',
             'is_active'    => 'sometimes|boolean',
+            'discount'     => 'nullable|numeric|min:0|max:100', // <--- CRITICAL FIX: Validation
         ]);
 
         if (isset($validated['product_name'])) {

@@ -6,31 +6,69 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use Illuminate\Http\Request;
 
-class CartController extends Controller
+class CartItemController extends Controller
 {
-    public function index(Request $request)
+    public function store(Request $request)
     {
         $user = $request->user();
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
 
-        $cart = Cart::with(['cartItems.product'])->where('user_id', $user->id)->first();
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'nullable|integer|min:1'
+        ]);
 
-        if (!$cart) return response()->json(['cart_items' => []]);
+        $quantity = $request->input('quantity', 1);
+        $cart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-        return response()->json($cart);
-    }
+        $existingItem = CartItem::where('cart_id', $cart->id)
+            ->where('product_id', $request->product_id)
+            ->first();
 
-    public function clearCart(Request $request)
-    {
-        $user = $request->user();
-        if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
-
-        $cart = Cart::where('user_id', $user->id)->first();
-
-        if ($cart) {
-            CartItem::where('cart_id', $cart->id)->delete();
+        if ($existingItem) {
+            $existingItem->increment('quantity', $quantity);
+        } else {
+            CartItem::create([
+                'cart_id' => $cart->id,
+                'product_id' => $request->product_id,
+                'quantity' => $quantity
+            ]);
         }
 
-        return response()->json(['message' => 'Cart cleared successfully']);
+        return response()->json(['message' => 'Item added to cart'], 201);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        $request->validate(['quantity' => 'required|integer|min:1']);
+
+        $cartItem = CartItem::whereHas('cart', function($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->find($id);
+
+        if (!$cartItem) return response()->json(['message' => 'Item not found'], 404);
+
+        $cartItem->update(['quantity' => $request->quantity]);
+
+        return response()->json(['message' => 'Cart updated']);
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        $cartItem = CartItem::whereHas('cart', function($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->find($id);
+
+        if (!$cartItem) return response()->json(['message' => 'Item not found'], 404);
+
+        $cartItem->delete();
+
+        return response()->json(['message' => 'Item removed']);
     }
 }

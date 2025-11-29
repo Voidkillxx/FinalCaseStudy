@@ -3,12 +3,14 @@ import { Pagination as BootstrapPagination } from 'react-bootstrap';
 
 const Pagination = ({ itemsPerPage, totalItems, currentPage, paginate }) => {
   const pageNumbers = [];
+  // Calculate total pages based on DB total count
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   for (let i = 1; i <= totalPages; i++) {
     pageNumbers.push(i);
   }
 
+  // Hide pagination if there is only 1 page
   if (totalPages <= 1) {
     return null; 
   }

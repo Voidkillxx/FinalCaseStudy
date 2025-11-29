@@ -19,24 +19,13 @@ class Product extends Model
         'slug',
         'category_id',
         'image_url',
-
+        'is_active',
+        'discount',
     ];
 
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
-
-     public function orderItems(): HasMany
-    {
-        return $this->hasMany(OrderItem::class);
-    }
-
-     public function cartItems(): HasMany
-    {
-        return $this->hasMany(CartItem::class);
-    }
-
+    // ... rest of model ...
 }
-
-

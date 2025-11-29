@@ -6,6 +6,8 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Cart;
 use App\Models\CartItem;
+use App\Models\Product; 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +20,9 @@ class OrderController extends Controller
 
         $request->validate([
             'shipping_address' => 'required|string',
-            'payment_type'     => 'required|in:Card,Cash On Delivery'
+            'payment_type'     => 'required|in:Card,Cash On Delivery',
+            'selected_items'   => 'required|array', // NEW: Require list of selected cart item IDs
+            'selected_items.*' => 'integer'
         ]);
 
         $cart = Cart::where('user_id', $user->id)->with('cartItems.product')->first();
@@ -27,34 +31,73 @@ class OrderController extends Controller
             return response()->json(['message' => 'Cart is empty'], 400);
         }
 
-        $totalAmount = 0;
-        foreach ($cart->cartItems as $item) {
-            if ($item->product) {
-                $totalAmount += $item->product->price * $item->quantity;
+        $selectedItemIds = $request->selected_items;
+        $checkoutItems = $cart->cartItems->whereIn('id', $selectedItemIds);
+
+        if ($checkoutItems->isEmpty()) {
+            return response()->json(['message' => 'No valid items selected for checkout'], 400);
+        }
+
+        foreach ($checkoutItems as $item) {
+            if (!$item->product) continue;
+            if ($item->product->stock < $item->quantity) {
+                return response()->json([
+                    'message' => "Insufficient stock for product: {$item->product->product_name}"
+                ], 400);
             }
         }
 
-        return DB::transaction(function () use ($user, $cart, $totalAmount, $request) {
+       
+        $subtotal = 0;
+        foreach ($checkoutItems as $item) {
+            if ($item->product) {
+                $price = $item->product->price;
+                
+                if (isset($item->product->discount) && $item->product->discount > 0) {
+                    $discountedPrice = $price * (1 - ($item->product->discount / 100));
+                    $price = $discountedPrice;
+                }
+
+                $subtotal += $price * $item->quantity;
+            }
+        }
+
+        $shippingFee = 50; 
+        $grandTotal = $subtotal + $shippingFee;
+
+        return DB::transaction(function () use ($user, $cart, $checkoutItems, $selectedItemIds, $subtotal, $shippingFee, $grandTotal, $request) {
+            
             $order = Order::create([
                 'user_id'          => $user->id,
-                'total_amount'     => $totalAmount,
+                'subtotal'         => $subtotal,      
+                'shipping_fee'     => $shippingFee,  
+                'total_amount'     => $grandTotal,   
                 'status'           => 'Pending',
                 'payment_type'     => $request->payment_type,
                 'shipping_address' => $request->shipping_address
             ]);
 
-            foreach ($cart->cartItems as $item) {
+            foreach ($checkoutItems as $item) {
                 if ($item->product) {
+                    
+                    $finalItemPrice = $item->product->price;
+                    if (isset($item->product->discount) && $item->product->discount > 0) {
+                        $finalItemPrice = $item->product->price * (1 - ($item->product->discount / 100));
+                    }
+
                     OrderItem::create([
                         'order_id'          => $order->id,
                         'product_id'        => $item->product_id,
                         'quantity'          => $item->quantity,
-                        'price_at_purchase' => $item->product->price
+                        'price_at_purchase' => $finalItemPrice
                     ]);
+
+                    
+                    $item->product->decrement('stock', $item->quantity);
                 }
             }
 
-            CartItem::where('cart_id', $cart->id)->delete();
+            CartItem::whereIn('id', $selectedItemIds)->delete();
 
             return response()->json([
                 'message'  => 'Order placed successfully!',
@@ -62,6 +105,7 @@ class OrderController extends Controller
             ], 201);
         });
     }
+
 
     public function index(Request $request)
     {
@@ -82,10 +126,7 @@ class OrderController extends Controller
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
 
         $query = Order::with('orderItems.product');
-
-        if (!$user->is_admin) {
-            $query->where('user_id', $user->id);
-        }
+        if (!$user->is_admin) $query->where('user_id', $user->id);
 
         $order = $query->find($id);
         if (!$order) return response()->json(['message' => 'Order not found'], 404);
@@ -99,15 +140,18 @@ class OrderController extends Controller
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
 
         $order = Order::where('id', $id);
-        if (!$user->is_admin) {
-            $order->where('user_id', $user->id);
-        }
+        if (!$user->is_admin) $order->where('user_id', $user->id);
         $order = $order->first();
 
         if (!$order) return response()->json(['message' => 'Order not found'], 404);
 
         if ($order->status !== 'Pending' && $order->status !== 'Processing') {
             return response()->json(['message' => 'Order cannot be cancelled now.'], 400);
+        }
+
+   
+        foreach($order->orderItems as $item) {
+           $item->product->increment('stock', $item->quantity);
         }
 
         $order->update(['status' => 'Cancelled']);
@@ -122,10 +166,16 @@ class OrderController extends Controller
 
         $order = Order::find($id);
         if (!$order) return response()->json(['message' => 'Order not found'], 404);
-        
-        $request->validate(['status' => 'required|in:Pending,Processing,Shipped,Delivered,Cancelled']);
-        $order->update(['status' => $request->status]);
 
+        $request->validate(['status' => 'required|in:Pending,Processing,Shipped,Delivered,Cancelled']);
+        
+        if ($request->status === 'Cancelled' && $order->status !== 'Cancelled') {
+           foreach($order->orderItems as $item) {
+              $item->product->increment('stock', $item->quantity);
+           }
+        }
+
+        $order->update(['status' => $request->status]);
         return response()->json(['message' => 'Order status updated', 'order' => $order]);
     }
-}   
+}

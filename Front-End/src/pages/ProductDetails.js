@@ -1,77 +1,133 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Container, Row, Col, Button, Image } from 'react-bootstrap';
-import '../Styles/ProductDetails.css';
+import { Container, Row, Col, Button, Image, Spinner } from 'react-bootstrap';
+import '../Styles/ProductDetails.css'; 
 import { calculateSellingPrice } from '../utils/PricingUtils';
+import { fetchProduct } from '../utils/api'; 
 
-const ProductDetails = ({ products, onAddToCart }) => {
-  const { productId } = useParams();
-  const product = (products || []).find(p => p.id === parseInt(productId));
+const ProductDetails = ({ onAddToCart }) => {
+  // CRITICAL FIX: Handle both 'slug' and 'productId' parameter names.
+  // This ensures it works regardless of whether your Route is /product/:slug or /product/:productId
+  const params = useParams();
+  const productId = params.slug || params.productId; 
+  
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!product) {
+  useEffect(() => {
+    const loadProductDetails = async () => {
+      setLoading(true);
+      try {
+        // Use the ID or SLUG read from the URL parameter to fetch the product.
+        const data = await fetchProduct(productId);
+        setProduct(data);
+      } catch (error) {
+        console.error("Error fetching product:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (productId) {
+        loadProductDetails();
+    } else {
+        setLoading(false);
+    }
+  }, [productId]); // Reruns fetch when URL parameter changes
+
+  const handleAddToCartClick = () => {
+      if (onAddToCart && product) {
+          onAddToCart(product); // Trigger modal
+      }
+  };
+
+  if (loading) {
+      return (
+        <Container className="text-center my-5 py-5">
+            <Spinner animation="border" variant="success"/>
+        </Container>
+      );
+  }
+
+  // If fetch was successful but returned 'Product not found' (check backend message)
+  if (!product || product.message === 'Product not found') {
     return (
       <Container className="text-center my-5">
         <h2>Product not found!</h2>
-        <Link to="/products" className="product-details-back-link">
-          ← Back to All Products
-        </Link>
+        <p className="text-muted">Could not find product. (ID/Slug: {productId})</p>
+        <Link to="/" className="btn btn-outline-primary mt-3">← Back</Link>
       </Container>
     );
   }
 
- const hasDiscount = product.discount && product.discount > 0;
-  const sellingPrice = calculateSellingPrice(product.price, product.discount);
+  const discount = product.discount || 0; 
+  const hasDiscount = discount > 0;
+  const sellingPrice = calculateSellingPrice(product.price, discount);
 
   return (
     <Container className="product-details-container my-3 my-md-5">
       <Row className="align-items-center">
-        {/* Image Column: Stacked on top for mobile */}
         <Col md={6} className="text-center mb-4 mb-md-0">
-          <Image 
-            src={product.imageUrl || '/img/placeholder.png'} 
-            alt={product.name} 
-            className="product-details-image" 
-            fluid 
-          />
+          <div className="p-4 bg-light rounded-3">
+             <Image 
+                src={product.image_url || '/img/placeholder.png'} 
+                alt={product.product_name} 
+                className="product-details-image img-fluid"
+                style={{maxHeight: '400px', objectFit: 'contain'}}
+                onError={(e) => { e.target.onerror = null; e.target.src = '/img/placeholder.png'; }}
+            />
+          </div>
         </Col>
         
-        {/* Info Column */}
         <Col md={6} className="product-details-info">
-          <h1 className="product-details-title">{product.name}</h1>
+          <h1 className="product-details-title fw-bold display-6">{product.product_name}</h1>
+          <p className="text-muted small mb-3">Category: {product.category?.category_name || 'General'}</p>
           
-          <div className="product-details-price-section">
+          <div className="product-details-price-section mb-4">
             {hasDiscount ? (
               <>
-                <p className="product-details-price">₱{sellingPrice.toFixed(2)}</p>
-                <p className="product-details-original-price">₱{product.price.toFixed(2)}</p>
-                <span className="product-details-discount-badge">
-                  Save {product.discount}%!
-                </span>
+                <h2 className="product-details-price text-success fw-bold d-inline me-3">₱{sellingPrice.toFixed(2)}</h2>
+                <span className="text-decoration-line-through text-muted fs-5">₱{Number(product.price).toFixed(2)}</span>
+                <span className="badge bg-danger ms-3">Save {discount}%</span>
               </>
             ) : (
-              <p className="product-details-price">₱{product.price.toFixed(2)}</p>
+              <h2 className="product-details-price text-success fw-bold">₱{Number(product.price).toFixed(2)}</h2>
             )}
           </div>
 
-          <p className="product-details-description">{product.description}</p>
+          <div className="mb-4">
+             <h5>Description</h5>
+             <p className="product-details-description text-secondary" style={{lineHeight:'1.6'}}>
+                {product.description || "No description available."}
+             </p>
+          </div>
           
-          {/* Button Container */}
+          <div className="mb-4">
+             {parseInt(product.stock) > 0 ? (
+                 <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2">
+                    In Stock: {product.stock}
+                 </span>
+             ) : (
+                 <span className="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-2">
+                    Out of Stock
+                 </span>
+             )}
+          </div>
+
           <div className="d-grid gap-2 d-md-block">
             <Button 
                 variant="success" 
                 size="lg" 
-                className="product-details-button"
-                onClick={() => onAddToCart(product)} 
+                className="product-details-button px-5 rounded-pill"
+                onClick={handleAddToCartClick} 
+                disabled={parseInt(product.stock) < 1}
             >
-                <i className="bi bi-cart-plus me-2"></i>
-                Add to Cart
+                <i className="bi bi-cart-plus me-2"></i> Add to Cart
             </Button>
           </div>
 
-          <div className="mt-4">
-            <Link to="/products" className="product-details-back-link">
-              ← Back to All Products
-            </Link>
+          <div className="mt-5">
+            <Link to="/" className="text-decoration-none text-secondary fw-bold">← Back to All Products</Link>
           </div>
         </Col>
       </Row>

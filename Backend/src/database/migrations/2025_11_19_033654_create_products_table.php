@@ -17,6 +17,7 @@ return new class extends Migration
             $table->decimal('price',10,2);
             $table->boolean('is_active')->default(true);
             $table->string(column: 'slug')->unique();
+            $table->integer('discount')->nullable();
             $table->integer('stock');
             $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
             $table->string('image_url');

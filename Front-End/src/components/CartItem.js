@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Row, Col, Image, Button, Form } from 'react-bootstrap';
 import { CartContext } from '../context/CartContext';
-import { calculateSellingPrice } from '../utils/PricingUtils'; // Import pricing util
+import { calculateSellingPrice } from '../utils/PricingUtils'; 
 import '../Styles/CartItem.css'; 
 
 const CartItem = ({ item }) => {
@@ -10,19 +10,22 @@ const CartItem = ({ item }) => {
     increaseQuantity,
     decreaseQuantity,
     selectedItems,
-    toggleSelectItem
+    toggleSelectItem,
+    loading // Add loading state if needed
   } = useContext(CartContext);
 
-  if (!item) {
-      console.error("CartItem received undefined item prop");
-      return null;
-  }
+  if (!item) return null;
+
+  // FIX: Extract the nested 'product' object from the database response
+  // If product is null (deleted), fallback to empty object to prevent crash
+  const product = item.product || {};
 
   const isSelected = selectedItems.includes(item.id);
 
   // --- Handlers ---
   const handleRemove = () => {
-      if (window.confirm(`Are you sure you want to remove ${item.name} from your cart?`)) {
+      // Use product.product_name
+      if (window.confirm(`Are you sure you want to remove ${product.product_name} from your cart?`)) {
         removeFromCart(item.id);
       }
   };
@@ -37,10 +40,12 @@ const CartItem = ({ item }) => {
 
   const handleIncrease = () => {
       const currentQuantity = item.quantity || 0;
-      const stock = item.stock || 0;
+      // Check stock from the PRODUCT object
+      const stock = product.stock || 0;
 
       if (currentQuantity + 1 > stock) {
-          alert(`Cannot add more than ${stock} units of ${item.name}.`);
+          // Use product.product_name
+          alert(`Cannot add more than ${stock} units of ${product.product_name}.`);
           return;
       }
 
@@ -49,49 +54,68 @@ const CartItem = ({ item }) => {
   // ---------------------------------
 
   const quantity = item.quantity || 0;
-  // Use the utility to calculate price consistently
-  const sellingPrice = calculateSellingPrice(item.price, item.discount);
+  
+  // FIX: Use properties from 'product' object
+  // Ensure we handle cases where price might be string "10.00" by casting to Number
+  const price = parseFloat(product.price) || 0;
+  const discount = parseFloat(product.discount) || 0;
+  
+  const sellingPrice = calculateSellingPrice(price, discount);
 
   return (
-    <Row className="align-items-center cart-item-row g-0"> 
+    <Row className="align-items-center cart-item-row g-0 shadow-sm mb-3 bg-white rounded border"> 
       {/* 1. Left: Checkbox & Image */}
-      <Col xs={4} md={2} className="d-flex align-items-center">
+      <Col xs={4} md={2} className="d-flex align-items-center p-2">
         <Form.Check
           type="checkbox"
           id={`select-item-${item.id}`}
           checked={isSelected}
           onChange={() => toggleSelectItem(item.id)}
-          aria-label={`Select ${item.name}`}
+          aria-label={`Select ${product.product_name}`}
           className="me-2"
         />
-        <div className="cart-item-img-wrapper">
-            <Image src={item.imageUrl || '/img/placeholder.png'} alt={item.name} fluid rounded />
+        <div className="cart-item-img-wrapper" style={{width: '80px', height: '80px'}}>
+            {/* FIX: Use product.image_url */}
+            <Image 
+                src={product.image_url || '/img/placeholder.png'} 
+                alt={product.product_name} 
+                fluid 
+                rounded 
+                style={{width: '100%', height: '100%', objectFit: 'cover'}}
+            />
         </div>
       </Col>
 
       {/* 2. Middle: Info */}
       <Col xs={4} md={4} className="ps-2">
-        <h5 className="cart-item-name text-truncate" title={item.name}>{item.name}</h5> 
-        <p className="cart-item-unit-price mb-0">₱{sellingPrice.toFixed(2)}</p> 
+        {/* FIX: Use product.product_name */}
+        <h5 className="cart-item-name text-truncate mb-1" title={product.product_name}>
+            {product.product_name || 'Unknown Product'}
+        </h5> 
+        <p className="cart-item-unit-price mb-0 text-muted small">
+            Unit: ₱{sellingPrice.toFixed(2)}
+        </p> 
       </Col>
 
       {/* 3. Right: Actions (Qty, Total, Remove) */}
       <Col xs={4} md={6}>
-        <div className="cart-item-actions d-flex flex-column flex-md-row align-items-end align-items-md-center justify-content-md-between">
+        <div className="cart-item-actions d-flex flex-column flex-md-row align-items-end align-items-md-center justify-content-md-between p-2">
             
             {/* Qty Controls */}
             <div className="qty-controls d-flex align-items-center mb-1 mb-md-0">
-                <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleDecrease}>-</Button>
-                <span className="qty-val mx-2">{quantity}</span>
-                <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleIncrease}>+</Button>
+                <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleDecrease} disabled={loading}>-</Button>
+                <span className="qty-val mx-2 fw-bold">{quantity}</span>
+                <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleIncrease} disabled={loading}>+</Button>
             </div>
 
             {/* Total Price */}
-            <strong className="cart-item-total mb-1 mb-md-0 mx-md-3">₱{(quantity * sellingPrice).toFixed(2)}</strong> 
+            <strong className="cart-item-total mb-1 mb-md-0 mx-md-3 text-success">
+                ₱{(quantity * sellingPrice).toFixed(2)}
+            </strong> 
             
             {/* Remove Link */}
-            <div onClick={handleRemove} className="cart-item-remove text-danger" role="button">
-                <small>Remove</small>
+            <div onClick={handleRemove} className="cart-item-remove text-danger" role="button" style={{cursor: 'pointer'}}>
+                <small><i className="bi bi-trash"></i> Remove</small>
             </div>
         </div>
       </Col>

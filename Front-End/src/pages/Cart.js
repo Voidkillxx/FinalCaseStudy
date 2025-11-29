@@ -1,5 +1,5 @@
-import React, { useContext, useState } from 'react';
-import { Container, Row, Col, Button, Card, Modal, Form } from 'react-bootstrap';
+import React, { useContext, useState, useEffect } from 'react';
+import { Container, Row, Col, Button, Card, Modal, Form, Spinner } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import RemoveItemModal from '../components/RemoveItemModal';
@@ -13,52 +13,77 @@ const Cart = ({ showAlert }) => {
     selectedSubtotal,
     toggleSelectAll,
     clearCart,
-    removeFromCart
+    removeFromCart,
+    refreshCart, 
+    loading
   } = useContext(CartContext);
+  
   const navigate = useNavigate();
 
   const [showClearModal, setShowClearModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
 
-  const isAllSelected = cartItems.length > 0 && selectedItems.length === cartItems.length;
+  useEffect(() => {
+    refreshCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // --- Modal Handlers (Remains the same) ---
+  // Strict check for "Select All"
+  const isAllSelected = cartItems.length > 0 && cartItems.every(item => selectedItems.includes(item.id));
+
+  // --- Modal Handlers ---
   const handleShowClearModal = () => setShowClearModal(true);
   const handleCloseClearModal = () => setShowClearModal(false);
-  const handleConfirmClear = () => { clearCart(); handleCloseClearModal(); };
-  // const handleShowRemoveModal = (item) => { setItemToRemove(item); setShowRemoveModal(true); };
+  const handleConfirmClear = async () => { 
+      await clearCart(); 
+      handleCloseClearModal(); 
+  };
+  
+  const handleShowRemoveModal = (item) => { setItemToRemove(item); setShowRemoveModal(true); };
   const handleCloseRemoveModal = () => { setItemToRemove(null); setShowRemoveModal(false); };
-  const handleConfirmRemove = (itemId) => { removeFromCart(itemId); handleCloseRemoveModal(); };
-  // --- End Modal Handlers ---
+  const handleConfirmRemove = async (itemId) => { 
+      await removeFromCart(itemId); 
+      handleCloseRemoveModal(); 
+  };
 
-  // --- Proceed to Checkout Handler (Remains the same) ---
+  // --- Checkout Handler ---
   const handleProceedToCheckout = () => {
     if (selectedItems.length === 0) {
-       if (showAlert) { showAlert('Please select at least one item to checkout.', 'warning'); }
-       else { console.warn('Please select at least one item to checkout.'); }
+       if (showAlert) showAlert('Please select at least one item to checkout.', 'warning');
+       else alert('Please select at least one item to checkout.');
     } else {
       navigate('/checkout');
     }
   };
-  // --- End Proceed to Checkout Handler ---
+
+  if (loading && cartItems.length === 0) {
+      return (
+          <Container className="my-5 text-center py-5">
+              <Spinner animation="border" variant="success" />
+              <p className="mt-3 text-muted">Loading your cart...</p>
+          </Container>
+      );
+  }
 
   return (
     <>
-      {/* Replaced cartContainerStyle with class */}
       <Container className="my-5 cart-container"> 
-        {/* Replaced sectionTitleStyle with class */}
         <h2 className="cart-section-title">Shopping Cart</h2> 
-        {/* Check cartItems length here */}
+        
         {cartItems.length === 0 ? (
-          <div className="text-center">
-             <p>Your cart is empty.</p>
-             <Button as={Link} to="/products" variant="primary">Continue Shopping</Button>
+          <div className="text-center py-5">
+             <div className="display-1 mb-3">🛒</div>
+             <h4>Your cart is empty.</h4>
+             <p className="text-muted">Looks like you haven't added anything yet.</p>
+             <Button as={Link} to="/" variant="success" size="lg" className="mt-3 px-4 rounded-pill">
+                Start Shopping
+             </Button>
           </div>
         ) : (
           <Row>
             <Col lg={8}>
-              {/* Select All Checkbox and Clear Cart Button */}
+              {/* Toolbar */}
               <div className="d-flex align-items-center mb-3 border-bottom pb-2">
                  <Form.Check
                    type="checkbox"
@@ -67,35 +92,45 @@ const Cart = ({ showAlert }) => {
                    checked={isAllSelected}
                    onChange={toggleSelectAll}
                    className="me-auto fw-bold"
+                   disabled={loading}
                  />
-                 <Button variant="outline-danger" size="sm" onClick={handleShowClearModal}>
+                 <Button variant="outline-danger" size="sm" onClick={handleShowClearModal} disabled={loading}>
                    Clear Cart
                  </Button>
               </div>
 
-              {/* Cart Items List - Map over cartItems */}
+              {/* Items List */}
               {cartItems.map(item => (
-                <CartItem key={item.id} item={item} />
+                <CartItem 
+                    key={item.id} 
+                    item={item} 
+                    onRemove={() => handleShowRemoveModal(item)} 
+                />
               ))}
 
             </Col>
+            
             {/* Order Summary */}
             <Col lg={4}>
-              {/* Replaced orderSummaryCardStyle with class */}
-              <Card className="order-summary-card"> 
+              <Card className="order-summary-card shadow-sm border-0"> 
                 <Card.Body>
-                  <Card.Title>Order Summary</Card.Title>
+                  <Card.Title className="fw-bold mb-4">Order Summary</Card.Title>
                   <div className="d-flex justify-content-between my-2">
-                    <span>Subtotal ({selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''})</span>
+                    <span>Subtotal ({selectedItems.length} items)</span>
                     <strong>₱{selectedSubtotal.toFixed(2)}</strong>
                   </div>
                   <hr />
-                  <div className="d-flex justify-content-between h5">
+                  <div className="d-flex justify-content-between h5 text-success">
                     <strong>Total</strong>
                     <strong>₱{selectedSubtotal.toFixed(2)}</strong>
                   </div>
-                  <Button variant="success" className="w-100 mt-3" onClick={handleProceedToCheckout} disabled={selectedItems.length === 0}>
-                    Proceed to Checkout ({selectedItems.length})
+                  <Button 
+                    variant="success" 
+                    className="w-100 mt-4 py-2 fw-bold" 
+                    onClick={handleProceedToCheckout} 
+                    disabled={selectedItems.length === 0 || loading}
+                  >
+                    Proceed to Checkout
                   </Button>
                 </Card.Body>
               </Card>
@@ -104,14 +139,17 @@ const Cart = ({ showAlert }) => {
         )}
       </Container>
 
-      {/* Clear Cart Modal */}
+      {/* Clear Modal */}
       <Modal show={showClearModal} onHide={handleCloseClearModal} centered>
-          <Modal.Header closeButton> <Modal.Title>Confirm Action</Modal.Title> </Modal.Header>
+          <Modal.Header closeButton> <Modal.Title>Clear Cart?</Modal.Title> </Modal.Header>
           <Modal.Body>Are you sure you want to remove all items from your cart?</Modal.Body>
-          <Modal.Footer> <Button variant="secondary" onClick={handleCloseClearModal}> Cancel </Button> <Button variant="danger" onClick={handleConfirmClear}> Clear Cart </Button> </Modal.Footer>
+          <Modal.Footer> 
+              <Button variant="secondary" onClick={handleCloseClearModal}>Cancel</Button> 
+              <Button variant="danger" onClick={handleConfirmClear}>Yes, Clear It</Button> 
+          </Modal.Footer>
       </Modal>
 
-      {/* Remove Item Modal Component */}
+      {/* Remove Item Modal */}
       <RemoveItemModal
           show={showRemoveModal}
           handleClose={handleCloseRemoveModal}

@@ -5,6 +5,7 @@ import '../Styles/CategoryFilter.css';
 const CategoryFilter = ({ categories, selectedCategory, onSelectCategory }) => {
   return (
     <div className="category-filter-container mb-4">
+      {/* "All" Button */}
       <Button
         variant={!selectedCategory ? 'success' : 'outline-success'}
         onClick={() => onSelectCategory(null)}
@@ -12,6 +13,8 @@ const CategoryFilter = ({ categories, selectedCategory, onSelectCategory }) => {
       >
         All
       </Button>
+
+      {/* Category List */}
       {(categories || []).map(category => (
         <Button
           key={category.id}
@@ -19,7 +22,8 @@ const CategoryFilter = ({ categories, selectedCategory, onSelectCategory }) => {
           onClick={() => onSelectCategory(category.id)}
           className="category-button"
         >
-          {category.name}
+          {/* FIX: Use 'category_name' from DB, fallback to 'name' */}
+          {category.category_name || category.name}
         </Button>
       ))}
     </div>

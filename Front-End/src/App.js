@@ -1,15 +1,12 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { Alert, Container } from 'react-bootstrap';
+import { Alert, Container, Spinner } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
 
-// Context & Data
+// Context
 import { CartProvider, CartContext } from './context/CartContext';
-import categoriesObject from './data/Categories'; 
-import productsData from './data/products.json';
-import usersData from './data/users.json';
 
 // Components
 import Navbar from './components/Navbar';
@@ -31,51 +28,187 @@ import Register from './pages/Register';
 
 let alertTimeoutId = null;
 
-function AppContent() {
-  // FIX: Destructure ONLY the variables used in AppContent. 
-  // Removed 'selectedItems' and 'removeSelectedItems'.
-  const { cartItems, addToCart, clearCart, setUser } = useContext(CartContext);
-  
-  const [products, setProducts] = useState(() =>
-    productsData.map(p => ({
-      ...p,
-      stock: parseInt(p.stock) || 0,
-      categoryId: parseInt(p.categoryId)
-    }))
+// --- INTERNAL COMPONENTS (Modals kept same as before) ---
+const CartModal = ({ show, onClose, cartItems, onUpdateQty, onRemove, onCheckout, loading }) => {
+  if (!show) return null;
+  const total = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  return (
+    <div className="modal d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+      <div className="modal-dialog modal-dialog-centered modal-lg">
+        <div className="modal-content">
+          <div className="modal-header bg-success text-white">
+            <h5 className="modal-title"><i className="bi bi-cart"></i> Your Shopping Cart</h5>
+            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+          </div>
+          <div className="modal-body">
+            {cartItems.length === 0 ? (
+              <div className="text-center py-5 text-muted">
+                <h4>Your cart is empty.</h4>
+                <p>Start shopping to fill it up!</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table align-middle">
+                  <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th><th>Action</th></tr></thead>
+                  <tbody>
+                    {cartItems.map(item => (
+                      <tr key={item.id}>
+                        <td>
+                           <div className="d-flex align-items-center">
+                             <img src={item.product.image_url || 'https://via.placeholder.com/40'} alt="" style={{width:'40px', height:'40px', objectFit:'cover', borderRadius:'5px', marginRight:'10px'}}/>
+                             <div><div className="fw-bold">{item.product.product_name}</div><small className="text-muted">{item.product.description?.substring(0, 30)}...</small></div>
+                           </div>
+                        </td>
+                        <td>${item.product.price}</td>
+                        <td>
+                          <div className="input-group input-group-sm" style={{width: '100px'}}>
+                            <button className="btn btn-outline-secondary" onClick={() => onUpdateQty(item.id, item.quantity - 1)} disabled={loading}>-</button>
+                            <input type="text" className="form-control text-center" value={item.quantity} readOnly />
+                            <button className="btn btn-outline-secondary" onClick={() => onUpdateQty(item.id, item.quantity + 1)} disabled={loading}>+</button>
+                          </div>
+                        </td>
+                        <td className="fw-bold text-success">${(item.product.price * item.quantity).toFixed(2)}</td>
+                        <td><button className="btn btn-sm btn-outline-danger" onClick={() => onRemove(item.id)} disabled={loading}>❌</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="modal-footer justify-content-between">
+            <div className="h5 mb-0">Total: <span className="text-success fw-bold">${total.toFixed(2)}</span></div>
+            <div>
+              <button className="btn btn-secondary me-2" onClick={onClose}>Continue Shopping</button>
+              {cartItems.length > 0 && <button className="btn btn-success" onClick={onCheckout}>Proceed to Checkout</button>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
+};
+
+const CheckoutModal = ({ show, onClose, onConfirm, loading }) => {
+  const [address, setAddress] = useState('');
+  const [payment, setPayment] = useState('Cash On Delivery');
+  if(!show) return null;
+  const handleSubmit = (e) => { e.preventDefault(); onConfirm({ shipping_address: address, payment_type: payment }); };
+  return (
+    <div className="modal d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+      <div className="modal-dialog modal-dialog-centered">
+        <div className="modal-content">
+          <div className="modal-header bg-primary text-white">
+            <h5 className="modal-title"><i className="bi bi-box"></i> Checkout</h5>
+            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+          </div>
+          <div className="modal-body">
+             <form onSubmit={handleSubmit}>
+                <div className="mb-3"><label className="form-label">Shipping Address</label><textarea className="form-control" rows="3" required value={address} onChange={e => setAddress(e.target.value)} placeholder="Enter full address..."></textarea></div>
+                <div className="mb-4"><label className="form-label">Payment Method</label><select className="form-select" value={payment} onChange={e => setPayment(e.target.value)}><option value="Cash On Delivery">Cash On Delivery</option><option value="Card">Card (Mock)</option></select></div>
+                <div className="d-grid"><button className="btn btn-primary btn-lg" disabled={loading}>{loading ? 'Placing Order...' : 'Place Order'}</button></div>
+             </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- APP CONTENT ---
+
+function AppContent() {
+  const { addToCart, clearCart, setUser, refreshCart } = useContext(CartContext);
+  
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  const [cartItems, setCartItems] = useState([]); 
+  const [cartCount, setCartCount] = useState(0);
+  
+  const [showAddQtyModal, setShowAddQtyModal] = useState(false);
+  const [productToAdd, setProductToAdd] = useState(null);
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [alertInfo, setAlertInfo] = useState({ show: false, message: '', variant: 'success' });
   
   const navigate = useNavigate();
   const location = useLocation();
   const isLoginPage = ['/login', '/forgot', '/reset', '/register'].includes(location.pathname);
 
-  // Users: Combine user data directly
-  const storedUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-  const combinedUsers = [...usersData, ...storedUsers];
-  
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoadingData(true);
+      try {
+        const catRes = await fetch('http://localhost:8095/api/categories');
+        const catData = await catRes.json();
+        setCategories(catData);
 
-  // Categories: Convert the centralized object into the array format needed for rendering
-  const categories = Object.keys(categoriesObject).map(id => ({
-      id: parseInt(id), 
-      name: categoriesObject[id],
-      imageUrl: 
-        categoriesObject[id] === 'Beverage' ? '/img/products/c2.png' :
-        categoriesObject[id] === 'Dairy' ? '/img/products/Eden.png' :
-        categoriesObject[id] === 'Snacks' ? '/img/products/Oishi.png' :
-        categoriesObject[id] === 'Pastries' ? '/img/products/Pandesal.png' :
-        '/img/products/default.png',
-  }));
+        let url = `http://localhost:8095/api/products?page=${currentPage}`;
+        
+        // Ensure search term is safely encoded
+        if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+        
+        if (selectedCategory) {
+              const catObj = catData.find(c => c.id === parseInt(selectedCategory));
+              if(catObj) url += `&category=${catObj.slug}`;
+        }
 
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [showAddQtyModal, setShowAddQtyModal] = useState(false);
-  const [productToAdd, setProductToAdd] = useState(null);
-  const [alertInfo, setAlertInfo] = useState({ show: false, message: '', variant: 'success' });
+        const prodRes = await fetch(url);
+        const prodData = await prodRes.json();
 
-  // --- Alerts ---
-  const showAlert = (message, variant = 'success', duration = 5000) => {
+        if (prodData.data) {
+          setProducts(prodData.data);
+          setLastPage(prodData.last_page);
+        } else {
+          setProducts(prodData);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, [currentPage, searchTerm, selectedCategory]);
+
+  useEffect(() => {
+    if (currentUser && typeof setUser === 'function') {
+        setUser(currentUser.id);
+        fetchCart(localStorage.getItem('token'));
+    }
+    return () => { if (alertTimeoutId) clearTimeout(alertTimeoutId); };
+  }, [currentUser, setUser]); 
+
+  const fetchCart = async (token) => {
+    try {
+        const res = await fetch('http://localhost:8095/api/cart', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if(res.ok) {
+            const data = await res.json();
+            if(data.cart_items) {
+                setCartItems(data.cart_items);
+                setCartCount(data.cart_items.reduce((acc, item) => acc + item.quantity, 0));
+            }
+        }
+    } catch(e) { console.error(e); }
+  };
+
+  const showAlert = (message, variant = 'success', duration = 3000) => {
     if (alertTimeoutId) clearTimeout(alertTimeoutId);
     setAlertInfo({ show: true, message, variant });
     alertTimeoutId = setTimeout(() => {
@@ -83,55 +216,74 @@ function AppContent() {
     }, duration);
   };
 
-  // --- Login/Logout ---
-  const handleLogin = (email, password) => {
-    const user = combinedUsers.find(u => u.email === email && u.password === password);
+  // --- HANDLERS ---
 
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      if (setUser) setUser(user.id); 
-      showAlert(`Welcome back, ${user.email}!`, 'success');
-      navigate(user.role === 'admin' ? '/admin' : '/');
-    } else {
-      showAlert('Invalid email or password.', 'danger');
-      setCurrentUser(null);
-      localStorage.removeItem('currentUser');
-    }
+  const handleLogin = (token, user) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setCurrentUser(user);
+    if (typeof setUser === 'function') setUser(user.id);
+    
+    fetchCart(token);
+    refreshCart(); 
+
+    showAlert(`Welcome back, ${user.first_name}!`, 'success');
+    navigate(user.is_admin ? '/admin' : '/');
   };
 
   const handleLogout = () => {
+    localStorage.clear();
     setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    clearCart();
-    if (setUser) setUser(null); 
+    setCartItems([]);
+    setCartCount(0);
+    
+    if (typeof setUser === 'function') setUser(null);
+    if (typeof refreshCart === 'function') refreshCart(); 
+    
     showAlert('You have been logged out.', 'info');
     navigate('/');
   };
 
-  // Corrected useEffect dependency array
-  useEffect(() => {
-    const savedUser = JSON.parse(localStorage.getItem('currentUser'));
-    if (savedUser) {
-        setCurrentUser(savedUser);
-        if (setUser) setUser(savedUser.id); 
-    }
-    return () => { if (alertTimeoutId) clearTimeout(alertTimeoutId); };
-  }, [setUser]); 
+  const handleResetFilters = () => {
+    setSelectedCategory(null);
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
 
-  // --- Cart Logic ---
-  const handleShowAddQuantityModal = (product) => {
+  const handleOpenCart = () => {
+    if (!currentUser) {
+        showAlert("Please login to view your cart!", "warning");
+        return;
+    }
+    setShowCart(true);
+  };
+
+  const handleShowAddQuantityModal = async (product) => {
     if (!currentUser) {
       showAlert('Please log in to add items to your cart.', 'warning');
-      navigate('/login');
       return false;
     }
-    const productInState = products.find(p => p.id === product.id);
-    if (!productInState || productInState.stock <= 0) {
-      showAlert(`${product.name} is out of stock.`, 'danger');
+    
+    setLoading(true);
+    let freshProduct;
+    try {
+        const res = await fetch(`http://localhost:8095/api/products/${product.id}`);
+        const data = await res.json();
+        freshProduct = data;
+    } catch (e) {
+        showAlert('Could not load product details.', 'danger');
+        setLoading(false);
+        return false;
+    } finally {
+        setLoading(false);
+    }
+    
+    if (!freshProduct || freshProduct.stock <= 0) {
+      showAlert(`${freshProduct?.product_name || 'Item'} is out of stock.`, 'danger');
       return false;
     }
-    setProductToAdd(productInState);
+    
+    setProductToAdd(freshProduct);
     setShowAddQtyModal(true);
     return true;
   };
@@ -141,72 +293,96 @@ function AppContent() {
     setShowAddQtyModal(false);
   };
 
-  const handleConfirmAddToCart = (product, quantity) => {
-    const productInState = products.find(p => p.id === product.id);
-    const existingCartItem = cartItems.find(item => item.id === product.id);
-    const currentQuantityInCart = existingCartItem ? parseInt(existingCartItem.quantity) || 0 : 0;
-    const stock = parseInt(productInState?.stock) || 0;
-
-    if (quantity + currentQuantityInCart > stock) {
-      showAlert(`Cannot add ${quantity} x ${product.name}. Only ${stock - currentQuantityInCart} left.`, 'warning');
-      return;
-    }
-    addToCart(product, quantity);
-    showAlert(`${quantity} x ${product.name} added to cart!`, 'success');
+  const handleConfirmAddToCart = async (product, quantity) => {
+     setLoading(true);
+     try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:8095/api/cart/items', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ product_id: product.id, quantity: quantity })
+        });
+        if(res.ok) {
+            showAlert('Added to cart!', 'success');
+            fetchCart(token);
+            refreshCart(); 
+        } else {
+            showAlert('Failed to add item', 'danger');
+        }
+     } catch(e) { showAlert('Error connecting to server', 'danger'); }
+     setLoading(false);
   };
 
-  // --- Filters ---
-  const handleResetFilters = () => {
-    setSelectedCategory(null);
-    setSearchTerm('');
-    setCurrentPage(1);
+  const updateQty = async (itemId, newQty) => {
+    if(newQty < 1) return;
+    setLoading(true);
+    try {
+        const token = localStorage.getItem('token');
+        await fetch(`http://localhost:8095/api/cart/items/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ quantity: newQty })
+        });
+        fetchCart(token);
+        refreshCart();
+    } catch(e) {}
+    setLoading(false);
   };
 
-  const filteredProducts = products
-    .filter(p => !selectedCategory || Number(p.categoryId) === Number(selectedCategory))
-    .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  // --- Admin CRUD ---
-  const handleAddProduct = (newProductData) => {
-    const newProduct = {
-      ...newProductData,
-      id: products.length ? Math.max(...products.map(p => p.id)) + 1 : 1,
-      price: parseFloat(newProductData.price) || 0,
-      stock: parseInt(newProductData.stock) || 0,
-      discount: parseInt(newProductData.discount) || 0,
-      categoryId: parseInt(newProductData.categoryId)
-    };
-    setProducts(prev => [...prev, newProduct]);
-    setSelectedCategory(null);
-    showAlert("Product added successfully!", "success");
-    navigate('/admin');
+  const removeFromCart = async (itemId) => {
+      if(!window.confirm("Remove this item?")) return;
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`http://localhost:8095/api/cart/items/${itemId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        fetchCart(token);
+        refreshCart();
+      } catch(e) {}
+      setLoading(false);
   };
 
-  const handleEditProduct = (updatedProduct) => {
-    setProducts(prev => prev.map(p => (p.id === updatedProduct.id ? updatedProduct : p)));
-    showAlert("Product updated successfully!", "info");
+  const handleCheckout = async (details) => {
+      setLoading(true);
+      try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`http://localhost:8095/api/checkout`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}` 
+              },
+              body: JSON.stringify(details)
+          });
+          const data = await res.json();
+          if(res.ok) {
+              alert(`Order Successful! Order ID: ${data.order_id}`);
+              setShowCheckout(false);
+              setShowCart(false);
+              fetchCart(token);
+              refreshCart();
+          } else {
+              alert(data.message || 'Checkout failed');
+          }
+      } catch(e) { alert('Error processing checkout'); }
+      setLoading(false);
   };
-
-  const handleDeleteProduct = (productId) => {
-    setProducts(prev => prev.filter(p => p.id !== productId));
-    showAlert("Product deleted successfully.", "danger");
-  };
-  
-  const handleEditProductClick = (id) => navigate(`/admin/edit/${id}`);
-
 
   return (
     <div className="App">
+      {loading && (
+          <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-flex justify-content-center align-items-center" style={{zIndex: 10000}}>
+            <Spinner animation="border" variant="light" />
+          </div>
+      )}
+
       {alertInfo.show && (
-        <Alert
-          variant={alertInfo.variant}
-          onClose={() => setAlertInfo({ ...alertInfo, show: false })}
-          dismissible
-          className="app-alert position-fixed top-0 start-50 translate-middle-x mt-3 shadow"
-          style={{ zIndex: 9999, width: 'auto', top: '70px' }}
-        >
-          {alertInfo.message}
-        </Alert>
+        <Alert variant={alertInfo.variant} onClose={() => setAlertInfo({ ...alertInfo, show: false })} dismissible className="app-alert position-fixed top-0 start-50 translate-middle-x mt-3 shadow" style={{ zIndex: 9999, width: 'auto', top: '70px' }}>{alertInfo.message}</Alert>
       )}
 
       {!isLoginPage && (
@@ -217,68 +393,49 @@ function AppContent() {
           setSearchTerm={setSearchTerm}
           handleResetFilters={handleResetFilters}
           showAlert={showAlert}
+          cartCount={cartCount} 
+          onOpenCart={handleOpenCart} 
         />
       )}
 
       <Container fluid className="main-content py-3">
         <Routes>
-          <Route path="/" element={
-            <HomePage
-              products={filteredProducts}
-              categories={categories}
-              onAddToCart={handleShowAddQuantityModal}
-              currentPage={currentPage}
-              productsPerPage={8}
-              setCurrentPage={setCurrentPage}
-            />
-          } />
-          <Route path="/products" element={
-            <ProductList
-              products={filteredProducts}
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-              onAddToCart={handleShowAddQuantityModal}
-              currentPage={currentPage}
-              productsPerPage={8}
-              setCurrentPage={setCurrentPage}
-            />
-          } />
+          <Route 
+            path="/" 
+            element={
+              <HomePage 
+                products={products} 
+                categories={categories} 
+                onAddToCart={handleShowAddQuantityModal} 
+                loading={loadingData}
+                searchTerm={searchTerm} // <--- CRITICAL FIX: Passing search state
+              />
+            } 
+          />
+          <Route path="/product/:slug" element={<ProductDetails onAddToCart={handleShowAddQuantityModal} />} />
+          <Route path="/products" element={<ProductList products={products} categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} onAddToCart={handleShowAddQuantityModal} currentPage={currentPage} lastPage={lastPage} setCurrentPage={setCurrentPage} loading={loadingData} />} />
           <Route path="/product/:productId" element={<ProductDetails products={products} onAddToCart={handleShowAddQuantityModal} />} />
           <Route path="/cart" element={<Cart showAlert={showAlert} />} />
-          <Route
-            path="/checkout"
-            element={
-              <Checkout
-                showAlert={showAlert}
-                products={products}
-                setProducts={setProducts}
-                handleResetFilters={handleResetFilters}
-              />
-            }
-          />
+          <Route path="/checkout" element={<Checkout showAlert={showAlert} handleResetFilters={handleResetFilters} />} />
           <Route path="/login" element={<LoginPage handleLogin={handleLogin} />} />
-          <Route path="/register" element={<Register />} /> 
+          
+          <Route path="/register" element={<Register onLogin={handleLogin} />} /> 
+          
           <Route path="/forgot" element={<ForgotPassword />} />
           <Route path="/reset" element={<ResetPassword />} />
-          <Route path="/admin" element={
-            <AdminDashboard
-              products={products}
-              onDeleteProduct={handleDeleteProduct}
-              onEditProductClick={handleEditProductClick}
-            />
-          } />
-          <Route path="/admin/edit/:productId" element={<EditProduct products={products} handleEditProduct={handleEditProduct} showAlert={showAlert} />} />
-          <Route path="/admin/add" element={<AddProduct onAddProduct={handleAddProduct} onCancel={() => navigate('/admin')} showAlert={showAlert} />} />
+          <Route path="/admin" element={<AdminDashboard token={localStorage.getItem('token')} />} />
+          <Route path="/admin/edit/:productId" element={<EditProduct />} />
+          <Route path="/admin/add" element={<AddProduct />} />
         </Routes>
       </Container>
 
-      <AddQuantityModal
-        show={showAddQtyModal}
-        handleClose={handleCloseAddQuantityModal}
-        product={productToAdd}
-        handleAdd={handleConfirmAddToCart}
+      <AddQuantityModal show={showAddQtyModal} handleClose={handleCloseAddQuantityModal} product={productToAdd} handleAdd={handleConfirmAddToCart} />
+      
+      <CartModal 
+         show={showCart} onClose={() => setShowCart(false)} cartItems={cartItems}
+         onUpdateQty={updateQty} onRemove={removeFromCart} onCheckout={() => setShowCheckout(true)} loading={loading}
       />
+      <CheckoutModal show={showCheckout} onClose={() => setShowCheckout(false)} onConfirm={handleCheckout} loading={loading} />
     </div>
   );
 }
