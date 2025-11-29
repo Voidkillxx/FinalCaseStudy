@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { fetchCart, addToCart as apiAdd, updateCartItem, removeCartItem, clearCartApi } from '../utils/api';
 import { calculateSellingPrice } from '../utils/PricingUtils'; 
 
@@ -7,7 +7,6 @@ export const CartContext = createContext();
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   
-  // FIX: Initialize from sessionStorage so selection survives page refreshes/navigation
   const [selectedItems, setSelectedItems] = useState(() => {
     try {
         const saved = sessionStorage.getItem('cart_selected_items');
@@ -18,18 +17,14 @@ export const CartProvider = ({ children }) => {
   });
 
   const [cartCount, setCartCount] = useState(0);
-  // FIX: Start loading as true to prevent "No Items" flash before data loads
   const [loading, setLoading] = useState(true); 
 
-  // FIX: Save to sessionStorage whenever selection changes
   useEffect(() => {
     sessionStorage.setItem('cart_selected_items', JSON.stringify(selectedItems));
   }, [selectedItems]);
 
-  // 1. LOAD CART FROM DATABASE
-  const refreshCart = async () => {
-    // Only set loading if we don't have items yet (prevents UI flicker)
-    if(cartItems.length === 0) setLoading(true); 
+  const refreshCart = useCallback(async () => {
+    setLoading(true); 
     
     const token = localStorage.getItem('token');
     if (!token) {
@@ -51,14 +46,12 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setCartItems, setCartCount, setLoading]);
 
-  // Initial Load
   useEffect(() => {
     refreshCart();
-  }, []);
+  }, [refreshCart]);
 
-  // 2. SELECTION LOGIC
   const toggleSelectItem = (itemId) => {
     setSelectedItems(prevSelected =>
       prevSelected.includes(itemId)
@@ -75,7 +68,6 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 3. CALCULATION LOGIC
   const selectedSubtotal = cartItems
     .filter(item => selectedItems.includes(item.id))
     .reduce((total, item) => {
@@ -85,66 +77,85 @@ export const CartProvider = ({ children }) => {
       return total + (validQuantity * finalPrice);
     }, 0);
 
-  // 4. API ACTIONS
-  const addToCart = async (productToAdd, quantity = 1) => {
-    setLoading(true);
-    try {
-        const productId = productToAdd.id ? productToAdd.id : productToAdd;
-        await apiAdd(productId, quantity);
-        await refreshCart(); 
-        return true;
-    } catch (error) {
-        throw error;
-    } finally {
-        setLoading(false);
-    }
+  const wrapApiAction = async (apiCall, successMsg, errorMsg, localUpdate = () => {}) => {
+      setLoading(true);
+      try {
+          await apiCall();
+          localUpdate();
+          await refreshCart();
+          console.log(`SUCCESS: ${successMsg}`);
+          return true;
+      } catch (error) {
+          console.error(`ERROR: ${errorMsg}`, error);
+          return false;
+      } finally {
+          setLoading(false);
+      }
   };
 
-  const removeFromCart = async (cartItemId) => {
-    if (!window.confirm("Remove item?")) return;
-    try {
-        await removeCartItem(cartItemId);
-        setSelectedItems(prev => prev.filter(id => id !== cartItemId));
-        await refreshCart();
-    } catch (error) {
-        console.error(error);
-    }
+  const addToCart = (productToAdd, quantity = 1) => {
+    const productId = productToAdd.id ? productToAdd.id : productToAdd;
+    return wrapApiAction(
+        () => apiAdd(productId, quantity),
+        'Item added to cart successfully!',
+        'Failed to add item to cart.'
+    );
+  };
+
+  const removeFromCart = (cartItemId) => {
+    return wrapApiAction(
+        () => removeCartItem(cartItemId),
+        'Item removed from cart!',
+        'Failed to remove item.',
+        () => setSelectedItems(prev => prev.filter(id => id !== cartItemId))
+    );
   };
 
   const increaseQuantity = async (cartItemId) => {
     const item = cartItems.find(i => i.id === cartItemId);
     if (item) {
-        try {
-            await updateCartItem(cartItemId, item.quantity + 1);
-            await refreshCart();
-        } catch(e) {}
+        return wrapApiAction(
+            () => updateCartItem(cartItemId, item.quantity + 1),
+            'Quantity increased!',
+            'Failed to update quantity.'
+        );
     }
   };
 
   const decreaseQuantity = async (cartItemId) => {
     const item = cartItems.find(i => i.id === cartItemId);
     if (item && item.quantity > 1) {
-        try {
-            await updateCartItem(cartItemId, item.quantity - 1);
-            await refreshCart();
-        } catch(e) {}
+        return wrapApiAction(
+            () => updateCartItem(cartItemId, item.quantity - 1),
+            'Quantity decreased!',
+            'Failed to update quantity.'
+        );
     }
   };
 
-  const clearCart = async () => {
-    try {
-        await clearCartApi();
-        setCartItems([]);
-        setSelectedItems([]);
-    } catch(e) {}
+  const clearCart = () => {
+    return wrapApiAction(
+        () => clearCartApi(),
+        'Your cart has been cleared.',
+        'Failed to clear cart.',
+        () => {
+            setCartItems([]);
+            setSelectedItems([]);
+        }
+    );
   };
 
-  const removeSelectedItems = async () => {
-    for (const id of selectedItems) {
-        await removeCartItem(id);
-    }
-    setSelectedItems([]);
-    await refreshCart();
+  const removeSelectedItems = () => {
+    return wrapApiAction(
+      async () => {
+        for (const id of selectedItems) {
+            await removeCartItem(id);
+        }
+      },
+      'Selected items removed!',
+      'Failed to remove all selected items.',
+      () => setSelectedItems([])
+    );
   };
 
   const setUser = (userId) => { };
