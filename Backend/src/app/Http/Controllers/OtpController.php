@@ -34,7 +34,6 @@ class OtpController extends Controller
             return response()->json(['message' => 'OTP Expired'], 400);
         }
 
-        // Success: Code is valid. Frontend can now show the Password Reset form.
         return response()->json(['message' => 'OTP Verified']);
     }
 
@@ -57,41 +56,70 @@ class OtpController extends Controller
         return response()->json(['message' => 'OTP Verified']);
     }
 
+    // --- 3. USED BY AUTH CONTROLLER (Register/Login) ---
+    // This is called by your AuthController.php. 
+    // We strictly send to $user->email here because this is for Login/Register.
     public function sendOtpApi(User $user)
     {
-        $this->generateAndSend($user);
+        $this->generateAndSend($user, $user->email);
     }
 
+    // --- 4. AUTHENTICATED REQUEST (Profile Page - Change Email/Pass) ---
+    // This handles the POST /api/user/request-otp from React
     public function sendOtpAuthenticated(Request $request)
     {
         $user = $request->user();
-        $this->generateAndSend($user);
-        return response()->json(['message' => 'OTP sent to your email.']);
+        
+        // Default target: The current user's email (e.g. for Password change)
+        $destinationEmail = $user->email; 
+
+        // CHECK: Is the user trying to change their email?
+        // If the React form sent an 'email' field, we use THAT as the destination.
+        if ($request->filled('email')) {
+            $request->validate(['email' => 'required|email']);
+            // OVERRIDE: Send OTP to the NEW email
+            $destinationEmail = $request->email;
+        }
+
+        // Send to the determined email
+        $this->generateAndSend($user, $destinationEmail);
+
+        return response()->json([
+            'message' => "OTP Code sent to " . $destinationEmail
+        ]);
     }
 
-    private function generateAndSend(User $user) 
+    // --- 5. GENERATOR FUNCTION ---
+    // Now requires a specific $targetEmail to prevent ambiguity
+    private function generateAndSend(User $user, string $targetEmail) 
     {
         $code = rand(100000, 999999);
         $names = explode(' ', $user->first_name);
         $firstName = $names[0] ?? 'User';
 
-        $intro = "Hi {$firstName},\nUse the code below to complete your verification process.";
-        $outro = "Thanks,\nThe Jake Store Team";
+        $intro = "Hi {$firstName},\nUse the code below to verify your request.";
+        $outro = "If you did not request this change, please ignore this email.";
 
+        // Security: Delete old OTPs for this user
         Otp::where('user_id', $user->id)->delete();
+        
+        // Create new OTP linked to User ID
         Otp::create([
             'user_id' => $user->id,
             'code' => $code,
             'expires_at' => Carbon::now()->addMinutes(5)
         ]);
 
+        // Send email to the TARGET email (New or Current)
         try {
-            Mail::to($user->email)->send(new OtpMail($code, $intro, $outro));
+            Mail::to($targetEmail)->send(new OtpMail($code, $intro, $outro));
+            Log::info("OTP $code sent to $targetEmail for User ID {$user->id}");
         } catch (\Exception $e) {
-            Log::error("Failed to send OTP: " . $e->getMessage());
+            Log::error("Failed to send OTP to $targetEmail: " . $e->getMessage());
         }
     }
 
+    // --- 6. VERIFY OTP (Login Flow) ---
     public function verifyOtpApi(Request $request)
     {
         $request->validate([

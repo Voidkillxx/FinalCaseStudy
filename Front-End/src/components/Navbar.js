@@ -108,6 +108,13 @@ const AppNavbar = ({ currentUser, handleLogout, searchTerm, setSearchTerm, handl
 
             {/* Right Side Nav */}
             <Nav>
+              {/* --- NEW PROFILE BUTTON (Only for non-admin users) --- */}
+              {!isAdminRoute && currentUser && (
+                 <Nav.Link as={Link} to="/profile" onClick={closeMenu} style={{ marginRight: '10px' }}>
+                    <i className="bi bi-person-circle"></i> My Profile
+                 </Nav.Link>
+              )}
+
               {currentUser ? (
                 <Nav.Link onClick={handleShowLogoutModal} className="logout-button">
                   Logout

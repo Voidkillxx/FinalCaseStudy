@@ -25,6 +25,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import EditProduct from './pages/EditProduct';
 import AddProduct from './pages/AddProduct';
 import Register from './pages/Register';
+import ProfilePage from './pages/ProfilePage';
 
 let alertTimeoutId = null;
 
@@ -296,22 +297,22 @@ function AppContent() {
   const handleConfirmAddToCart = async (product, quantity) => {
      setLoading(true);
      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:8095/api/cart/items', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify({ product_id: product.id, quantity: quantity })
-        });
-        if(res.ok) {
-            showAlert('Added to cart!', 'success');
-            fetchCart(token);
-            refreshCart(); 
-        } else {
-            showAlert('Failed to add item', 'danger');
-        }
+       const token = localStorage.getItem('token');
+       const res = await fetch('http://localhost:8095/api/cart/items', {
+           method: 'POST',
+           headers: { 
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${token}` 
+           },
+           body: JSON.stringify({ product_id: product.id, quantity: quantity })
+       });
+       if(res.ok) {
+           showAlert('Added to cart!', 'success');
+           fetchCart(token);
+           refreshCart(); 
+       } else {
+           showAlert('Failed to add item', 'danger');
+       }
      } catch(e) { showAlert('Error connecting to server', 'danger'); }
      setLoading(false);
   };
@@ -408,7 +409,7 @@ function AppContent() {
                 categories={categories} 
                 onAddToCart={handleShowAddQuantityModal} 
                 loading={loadingData}
-                searchTerm={searchTerm} // <--- CRITICAL FIX: Passing search state
+                searchTerm={searchTerm}
               />
             } 
           />
@@ -426,6 +427,10 @@ function AppContent() {
           <Route path="/admin" element={<AdminDashboard token={localStorage.getItem('token')} />} />
           <Route path="/admin/edit/:productId" element={<EditProduct />} />
           <Route path="/admin/add" element={<AddProduct />} />
+          
+          {/* 2. ROUTE ADDED HERE */}
+          <Route path="/profile" element={<ProfilePage showAlert={showAlert} />} />
+          
         </Routes>
       </Container>
 

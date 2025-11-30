@@ -1,8 +1,6 @@
-/* AdminDashboard.css - New Design */
-
 /* Main container */
 .admin-dashboard {
-  background-color: #b8e6c9; /* Mint green background */
+  background-color: #b8e6c9;
   padding: 2rem;
   min-height: 100vh;
   font-family: 'Arial', sans-serif;
@@ -16,7 +14,6 @@
   margin-bottom: 1.5rem;
 }
 
-/* Dashboard title */
 .dashboard-header h1 {
   color: #4CAF50;
   font-size: 2rem;
@@ -24,7 +21,6 @@
   margin: 0;
 }
 
-/* Dashboard Navigation Buttons */
 .dashboard-nav-buttons {
   display: flex;
   gap: 1rem;
@@ -67,7 +63,6 @@
   min-width: 300px;
 }
 
-/* Filter by Category label */
 .filter-label {
   color: #4CAF50;
   font-size: 1rem;
@@ -76,14 +71,12 @@
   display: block;
 }
 
-/* Category pills container */
 .category-pills {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
 
-/* Category pill button */
 .category-pill {
   padding: 0.5rem 1.25rem;
   border-radius: 20px;
@@ -106,7 +99,6 @@
   border-color: #4CAF50;
 }
 
-/* Search container */
 .search-container {
   position: relative;
   min-width: 250px;
@@ -143,7 +135,6 @@
   background-color: #45a049;
 }
 
-/* Table wrapper */
 .table-wrapper {
   background: white;
   border-radius: 20px;
@@ -152,15 +143,13 @@
   margin-bottom: 1.5rem;
 }
 
-/* Product table */
 .product-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-/* Table header */
 .product-table thead {
-  background-color: #7ec98f; /* Light green header */
+  background-color: #7ec98f;
 }
 
 .product-table thead th {
@@ -172,7 +161,6 @@
   border: none;
 }
 
-/* Table body */
 .product-table tbody td {
   padding: 1.5rem 1rem;
   text-align: center;
@@ -193,7 +181,6 @@
   border-bottom: none;
 }
 
-/* Empty message */
 .empty-message {
   text-align: center;
   padding: 2rem;
@@ -201,7 +188,6 @@
   font-style: italic;
 }
 
-/* Product image */
 .product-img {
   width: 60px;
   height: 60px;
@@ -209,7 +195,6 @@
   border-radius: 8px;
 }
 
-/* Action buttons */
 .action-buttons {
   display: flex;
   gap: 0.75rem;
@@ -285,4 +270,4 @@
     font-size: 0.85rem;
     padding: 0.4rem 1rem;
   }
-}
+} 
