@@ -20,24 +20,47 @@ const Cart = ({ showAlert }) => {
   
   const navigate = useNavigate();
 
+  // --- State for Modals ---
   const [showClearModal, setShowClearModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
+
+  // --- NEW: Local state for "Clearing..." spinner ---
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     refreshCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Strict check for "Select All"
   const isAllSelected = cartItems.length > 0 && cartItems.every(item => selectedItems.includes(item.id));
 
   // --- Modal Handlers ---
+
   const handleShowClearModal = () => setShowClearModal(true);
-  const handleCloseClearModal = () => setShowClearModal(false);
+  
+  const handleCloseClearModal = () => {
+      // Prevent closing if we are in the middle of clearing
+      if (!isClearing) {
+        setShowClearModal(false);
+      }
+  };
+
+  // UPDATED: Async handler with Spinner state
   const handleConfirmClear = async () => { 
-      await clearCart(); 
-      handleCloseClearModal(); 
+      try {
+          setIsClearing(true); // 1. Start Spinner
+          
+          await clearCart();   // 2. Wait for DB delete
+          
+          setIsClearing(false); // 3. Stop Spinner
+          setShowClearModal(false); // 4. Close Modal
+          
+          if(showAlert) showAlert('Cart cleared successfully!', 'success');
+      } catch (error) {
+          setIsClearing(false);
+          if(showAlert) showAlert('Failed to clear cart.', 'danger');
+      }
   };
   
   const handleShowRemoveModal = (item) => { setItemToRemove(item); setShowRemoveModal(true); };
@@ -139,13 +162,42 @@ const Cart = ({ showAlert }) => {
         )}
       </Container>
 
-      {/* Clear Modal */}
-      <Modal show={showClearModal} onHide={handleCloseClearModal} centered>
-          <Modal.Header closeButton> <Modal.Title>Clear Cart?</Modal.Title> </Modal.Header>
-          <Modal.Body>Are you sure you want to remove all items from your cart?</Modal.Body>
+      {/* --- UPDATED: Clear Cart Modal with Spinner --- */}
+      <Modal 
+        show={showClearModal} 
+        onHide={handleCloseClearModal} 
+        centered
+        backdrop={isClearing ? 'static' : true} // Lock background
+        keyboard={!isClearing} // Disable Escape key
+      >
+          <Modal.Header closeButton={!isClearing}> 
+            <Modal.Title>Clear Cart?</Modal.Title> 
+          </Modal.Header>
+          <Modal.Body>
+            Are you sure you want to remove all items from your cart?
+          </Modal.Body>
           <Modal.Footer> 
-              <Button variant="secondary" onClick={handleCloseClearModal}>Cancel</Button> 
-              <Button variant="danger" onClick={handleConfirmClear}>Yes, Clear It</Button> 
+              <Button variant="secondary" onClick={handleCloseClearModal} disabled={isClearing}>
+                Cancel
+              </Button> 
+              
+              <Button variant="danger" onClick={handleConfirmClear} disabled={isClearing}>
+                {isClearing ? (
+                    <>
+                        <Spinner
+                            as="span"
+                            animation="border"
+                            size="sm"
+                            role="status"
+                            aria-hidden="true"
+                            className="me-2"
+                        />
+                        Clearing...
+                    </>
+                ) : (
+                    'Yes, Clear It'
+                )}
+              </Button> 
           </Modal.Footer>
       </Modal>
 
