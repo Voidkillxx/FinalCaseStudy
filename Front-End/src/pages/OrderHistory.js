@@ -3,7 +3,6 @@ import { Modal, Button, Nav, Spinner } from 'react-bootstrap';
 import { fetchOrders, cancelOrder } from '../utils/api';
 import '../Styles/OrderHistory.css';
 
-
 const formatToPesos = (amount) => {
     return new Intl.NumberFormat('en-PH', {
         style: 'currency',
@@ -21,6 +20,7 @@ const STATUS_FILTERS = {
     'Cancelled': 'Cancelled',
 };
 
+// --- Component 1: Cancel Confirmation Modal (Yes/No) ---
 const CancelConfirmModal = ({ show, handleClose, handleConfirm, orderId }) => {
     return (
         <Modal show={show} onHide={handleClose} centered>
@@ -43,7 +43,6 @@ const CancelConfirmModal = ({ show, handleClose, handleConfirm, orderId }) => {
     );
 };
 
-
 const OrderHistory = ({ showAlert }) => { 
     const [allOrders, setAllOrders] = useState([]); 
     const [filteredOrders, setFilteredOrders] = useState([]); 
@@ -51,8 +50,17 @@ const OrderHistory = ({ showAlert }) => {
     const [error, setError] = useState(null);
     const [activeFilter, setActiveFilter] = useState('All'); 
     
+    // State for Confirmation Modal (Yes/No)
     const [showConfirmCancelModal, setShowConfirmCancelModal] = useState(false);
     const [orderToCancel, setOrderToCancel] = useState(null);
+
+    // --- NEW: State for Status Message Modal (Success/Error Popup) ---
+    const [statusModal, setStatusModal] = useState({
+        show: false,
+        title: '',
+        message: '',
+        variant: 'success' // 'success' or 'danger'
+    });
 
     const getOrders = useCallback(async () => {
         setIsLoading(true);
@@ -83,6 +91,7 @@ const OrderHistory = ({ showAlert }) => {
         }
     }, [allOrders, activeFilter]);
 
+    // --- Handlers ---
 
     const handleOpenCancelModal = (orderId) => {
         setOrderToCancel(orderId);
@@ -94,27 +103,38 @@ const OrderHistory = ({ showAlert }) => {
         setOrderToCancel(null);
     };
 
+    // Helper to close the new Status Modal
+    const handleCloseStatusModal = () => {
+        setStatusModal(prev => ({ ...prev, show: false }));
+    };
+
     const handleConfirmCancellation = async () => {
         if (!orderToCancel) return;
 
-        handleCloseCancelModal();
+        handleCloseCancelModal(); // Close the "Are you sure?" modal
 
         try {
             await cancelOrder(orderToCancel); 
             
-            if(showAlert) {
-                showAlert('Order successfully cancelled! The product stock has been restored.', 'success');
-            } else {
-                alert('Order successfully cancelled! The product stock has been restored.');
-            }
-            getOrders();
+            // --- FIX: Show Bootstrap Modal instead of alert() ---
+            setStatusModal({
+                show: true,
+                title: 'Success!',
+                message: 'Order successfully cancelled! The product stock has been restored.',
+                variant: 'success'
+            });
+
+            getOrders(); // Refresh list
         } catch (err) {
             const message = err.message || 'Failed to cancel order due to an unexpected server issue.'; 
-            if(showAlert) {
-                showAlert(`Cancellation Error: ${message}`, 'danger');
-            } else {
-                alert(`Cancellation Error: ${message}`);
-            }
+            
+            // --- FIX: Show Bootstrap Modal for Error too ---
+            setStatusModal({
+                show: true,
+                title: 'Cancellation Failed',
+                message: `Error: ${message}`,
+                variant: 'danger'
+            });
             console.error('Cancellation failed:', err);
         }
     };
@@ -201,12 +221,32 @@ const OrderHistory = ({ showAlert }) => {
                 )}
             </div>
             
+            {/* 1. The Confirmation Modal (Yes/No) */}
             <CancelConfirmModal
                 show={showConfirmCancelModal}
                 handleClose={handleCloseCancelModal}
                 handleConfirm={handleConfirmCancellation}
                 orderId={orderToCancel}
             />
+
+            {/* 2. NEW: The Status Modal (Success/Error Message) */}
+            <Modal show={statusModal.show} onHide={handleCloseStatusModal} centered>
+                <Modal.Header closeButton className={statusModal.variant === 'success' ? 'bg-success text-white' : 'bg-danger text-white'}>
+                    <Modal.Title>
+                        {statusModal.variant === 'success' ? <i className="bi bi-check-circle-fill me-2"></i> : <i className="bi bi-x-circle-fill me-2"></i>}
+                        {statusModal.title}
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="text-center p-4">
+                    <h5>{statusModal.message}</h5>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant={statusModal.variant === 'success' ? 'success' : 'secondary'} onClick={handleCloseStatusModal}>
+                        OK
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
         </div>
     );
 };

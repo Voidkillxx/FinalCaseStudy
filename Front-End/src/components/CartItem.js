@@ -1,5 +1,5 @@
-import React, { useContext, useState } from 'react'; // Added useState
-import { Row, Col, Image, Button, Form, Modal } from 'react-bootstrap'; // Added Modal
+import React, { useContext, useState } from 'react'; 
+import { Row, Col, Image, Button, Form, Modal, Spinner } from 'react-bootstrap'; // Added Spinner
 import { CartContext } from '../context/CartContext';
 import { calculateSellingPrice } from '../utils/PricingUtils'; 
 import '../Styles/CartItem.css'; 
@@ -11,11 +11,14 @@ const CartItem = ({ item }) => {
     decreaseQuantity,
     selectedItems,
     toggleSelectItem,
-    loading 
+    loading: contextLoading // Renamed to avoid confusion with local removing state
   } = useContext(CartContext);
 
-  // --- NEW: State for the Delete Confirmation Modal ---
+  // --- State ---
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  // NEW: Local state to track if we are currently deleting this specific item
+  const [isRemoving, setIsRemoving] = useState(false);
 
   if (!item) return null;
 
@@ -24,25 +27,36 @@ const CartItem = ({ item }) => {
 
   // --- Handlers ---
   
-  // 1. Opens the modal instead of window.confirm
   const initiateRemove = () => {
       setShowDeleteModal(true);
   };
 
-  // 2. Closes the modal without deleting
   const handleCloseModal = () => {
-      setShowDeleteModal(false);
+      // Only allow closing if we aren't in the middle of a delete
+      if (!isRemoving) {
+        setShowDeleteModal(false);
+      }
   };
 
-  // 3. Actually performs the delete (called by "Yes" button in modal)
-  const confirmRemove = () => {
-      removeFromCart(item.id);
-      setShowDeleteModal(false);
+  // UPDATED: Async handler to show loading state while database updates
+  const confirmRemove = async () => {
+      try {
+          setIsRemoving(true); // 1. Start loading (Spinner appears)
+          
+          // 2. Wait for the context to finish the API call
+          await removeFromCart(item.id); 
+          
+          // 3. Close modal (The component will likely unmount immediately after this)
+          setShowDeleteModal(false);
+      } catch (error) {
+          console.error("Failed to remove item:", error);
+          setIsRemoving(false); // Stop loading if there was an error
+          alert("Failed to remove item. Please try again.");
+      }
   };
 
   const handleDecrease = () => {
       if (item.quantity === 1) {
-          // If quantity is 1, ask for confirmation via Modal
           initiateRemove();
       } else {
           decreaseQuantity(item.id);
@@ -54,7 +68,6 @@ const CartItem = ({ item }) => {
       const stock = product.stock || 0;
 
       if (currentQuantity + 1 > stock) {
-          // You could also make this a Modal, but alert is okay for errors
           alert(`Cannot add more than ${stock} units of ${product.product_name}.`);
           return;
       }
@@ -108,9 +121,9 @@ const CartItem = ({ item }) => {
               
               {/* Qty Controls */}
               <div className="qty-controls d-flex align-items-center mb-1 mb-md-0">
-                  <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleDecrease} disabled={loading}>-</Button>
+                  <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleDecrease} disabled={contextLoading || isRemoving}>-</Button>
                   <span className="qty-val mx-2 fw-bold">{quantity}</span>
-                  <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleIncrease} disabled={loading}>+</Button>
+                  <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleIncrease} disabled={contextLoading || isRemoving}>+</Button>
               </div>
 
               {/* Total Price */}
@@ -118,7 +131,7 @@ const CartItem = ({ item }) => {
                   ₱{(quantity * sellingPrice).toFixed(2)}
               </strong> 
               
-              {/* Remove Link -> Triggers initiateRemove */}
+              {/* Remove Link */}
               <div onClick={initiateRemove} className="cart-item-remove text-danger" role="button" style={{cursor: 'pointer'}}>
                   <small><i className="bi bi-trash"></i> Remove</small>
               </div>
@@ -127,19 +140,41 @@ const CartItem = ({ item }) => {
       </Row>
 
       {/* --- DELETE CONFIRMATION MODAL --- */}
-      <Modal show={showDeleteModal} onHide={handleCloseModal} centered>
-        <Modal.Header closeButton>
+      <Modal 
+        show={showDeleteModal} 
+        onHide={handleCloseModal} 
+        centered
+        backdrop={isRemoving ? 'static' : true} // Prevent clicking outside while loading
+        keyboard={!isRemoving} // Prevent ESC key while loading
+      >
+        <Modal.Header closeButton={!isRemoving}>
           <Modal.Title>Remove Item</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           Are you sure you want to remove <strong>{product.product_name}</strong> from your cart?
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>
+          <Button variant="secondary" onClick={handleCloseModal} disabled={isRemoving}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={confirmRemove}>
-            Remove
+          
+          {/* UPDATED: Button shows Spinner when isRemoving is true */}
+          <Button variant="danger" onClick={confirmRemove} disabled={isRemoving}>
+            {isRemoving ? (
+                <>
+                    <Spinner
+                        as="span"
+                        animation="border"
+                        size="sm"
+                        role="status"
+                        aria-hidden="true"
+                        className="me-2"
+                    />
+                    Removing...
+                </>
+            ) : (
+                'Remove'
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
