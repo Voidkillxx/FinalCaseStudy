@@ -168,8 +168,81 @@ const AppNavbar = ({ currentUser, handleLogout, searchTerm, setSearchTerm, handl
                 handleClose={handleCloseLogoutModal}
                 handleConfirmLogout={handleConfirmLogout}
             />
-        </>
-    );
+          </Navbar.Brand>
+
+          <Navbar.Toggle aria-controls="basic-navbar-nav" />
+          
+          <Navbar.Collapse id="basic-navbar-nav">
+
+            {/* Nav Links */}
+            {!isAdminRoute && (
+              <Nav className="me-auto nav-links-custom">
+                <Nav.Link as={Link} to="/" onClick={handleNavClick}>Home</Nav.Link>
+                <Nav.Link as={Link} to="/products" onClick={handleNavClick}>Products</Nav.Link>
+              </Nav>
+            )}
+            {isAdminRoute && <Nav className="me-auto"></Nav>}
+
+            {/* Search Bar */}
+            {!isAdminRoute && (
+              <Form className="d-flex search-bar-custom" onSubmit={(e) => { e.preventDefault(); closeMenu(); }}>
+                <FormControl
+                  type="search"
+                  placeholder="Search..."
+                  className="me-2"
+                  aria-label="Search"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </Form>
+            )}
+
+            {/* Right Side Nav */}
+            <Nav>
+              {/* --- NEW PROFILE BUTTON (Only for non-admin users) --- */}
+              {!isAdminRoute && currentUser && (
+                 <Nav.Link as={Link} to="/profile" onClick={closeMenu} style={{ marginRight: '10px' }}>
+                    <i className="bi bi-person-circle"></i> My Profile
+                 </Nav.Link>
+              )}
+
+              {currentUser ? (
+                <Nav.Link onClick={handleShowLogoutModal} className="logout-button">
+                  Logout
+                </Nav.Link>
+              ) : (
+                <Nav.Link as={Link} to="/login" className="login-button-custom" onClick={closeMenu}>
+                  Login
+                </Nav.Link>
+              )}
+
+              {!isAdminRoute && (!currentUser || currentUser.role !== 'admin') && (
+                <Nav.Link
+                  as={Link}
+                  to="/cart"
+                  className="cart-icon-link"
+                  onClick={handleCartClick}
+                >
+                  <i className="bi bi-cart"></i>
+                  {itemCount > 0 && (
+                    <Badge pill bg="danger" className="cart-badge">
+                      {cartBadgeText}
+                    </Badge>
+                  )}
+                </Nav.Link>
+              )}
+            </Nav>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+
+      <LogoutConfirmModal
+        show={showLogoutModal}
+        handleClose={handleCloseLogoutModal}
+        handleConfirmLogout={handleConfirmLogout}
+      />
+    </>
+  );
 };
 
 export default AppNavbar;

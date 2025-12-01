@@ -25,8 +25,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import EditProduct from './pages/EditProduct';
 import AddProduct from './pages/AddProduct';
 import Register from './pages/Register';
-import OrderHistory from './pages/OrderHistory'; 
-
+import ProfilePage from './pages/ProfilePage';
 
 let alertTimeoutId = null;
 
@@ -384,165 +383,170 @@ function AppContent() {
         setShowRemoveConfirm(true);
     }
     
-    // Handler executed when confirmation modal is accepted
-    const handleConfirmRemoveFromCart = async () => {
-        if (!itemToRemoveId) return;
+    if (!freshProduct || freshProduct.stock <= 0) {
+      showAlert(`${freshProduct?.product_name || 'Item'} is out of stock.`, 'danger');
+      return false;
+    }
+    
+    setProductToAdd(freshProduct);
+    setShowAddQtyModal(true);
+    return true;
+  };
 
-        setShowRemoveConfirm(false);
-        setLoading(true);
+  const handleCloseAddQuantityModal = () => {
+    setProductToAdd(null);
+    setShowAddQtyModal(false);
+  };
 
-        try {
-            const token = localStorage.getItem('token');
-            await fetch(`http://localhost:8095/api/cart/items/${itemToRemoveId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            // Replaced alert() with showAlert()
-            showAlert('Item removed from cart.', 'info'); 
-            fetchCart(token);
-            refreshCart();
-        } catch(e) { 
-            showAlert('Error removing item from cart', 'danger');
-        }
-        setLoading(false);
-        setItemToRemoveId(null);
-    };
+  const handleConfirmAddToCart = async (product, quantity) => {
+     setLoading(true);
+     try {
+       const token = localStorage.getItem('token');
+       const res = await fetch('http://localhost:8095/api/cart/items', {
+           method: 'POST',
+           headers: { 
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${token}` 
+           },
+           body: JSON.stringify({ product_id: product.id, quantity: quantity })
+       });
+       if(res.ok) {
+           showAlert('Added to cart!', 'success');
+           fetchCart(token);
+           refreshCart(); 
+       } else {
+           showAlert('Failed to add item', 'danger');
+       }
+     } catch(e) { showAlert('Error connecting to server', 'danger'); }
+     setLoading(false);
+  };
 
-    const handleCheckout = async (details) => {
-         setLoading(true);
-         try {
-             const token = localStorage.getItem('token');
-             const selectedItemIds = cartItems.map(item => item.id);
-             const checkoutDetails = { ...details, selected_items: selectedItemIds };
+  const updateQty = async (itemId, newQty) => {
+    if(newQty < 1) return;
+    setLoading(true);
+    try {
+        const token = localStorage.getItem('token');
+        await fetch(`http://localhost:8095/api/cart/items/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ quantity: newQty })
+        });
+        fetchCart(token);
+        refreshCart();
+    } catch(e) {}
+    setLoading(false);
+  };
 
-             const res = await fetch(`http://localhost:8095/api/checkout`, {
-                 method: 'POST',
-                 headers: { 
-                     'Content-Type': 'application/json',
-                     'Authorization': `Bearer ${token}` 
-                 },
-                 body: JSON.stringify(checkoutDetails)
-             });
-             const data = await res.json();
-             if(res.ok) {
-                 // Replaced alert() with showAlert()
-                 showAlert(`Order Successful! Order ID: ${data.order_id}`, 'success'); 
-                 setShowCheckout(false);
-                 setShowCart(false);
-                 fetchCart(token);
-                 refreshCart();
-                 navigate('/orders'); 
-             } else {
-                 // Replaced alert() with showAlert()
-                 showAlert(data.message || 'Checkout failed', 'danger');
-             }
-         } catch(e) { 
-            showAlert('Error processing checkout', 'danger');
-         }
-         setLoading(false);
-    };
+  const removeFromCart = async (itemId) => {
+      if(!window.confirm("Remove this item?")) return;
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`http://localhost:8095/api/cart/items/${itemId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        fetchCart(token);
+        refreshCart();
+      } catch(e) {}
+      setLoading(false);
+  };
 
-    return (
-        <div className="App">
-            {/* Global Loading Spinner */}
-            {loading && (
-                <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-flex justify-content-center align-items-center" style={{zIndex: 10000}}>
-                    <Spinner animation="border" variant="light" />
-                </div>
-            )}
+  const handleCheckout = async (details) => {
+      setLoading(true);
+      try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`http://localhost:8095/api/checkout`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}` 
+              },
+              body: JSON.stringify(details)
+          });
+          const data = await res.json();
+          if(res.ok) {
+              alert(`Order Successful! Order ID: ${data.order_id}`);
+              setShowCheckout(false);
+              setShowCart(false);
+              fetchCart(token);
+              refreshCart();
+          } else {
+              alert(data.message || 'Checkout failed');
+          }
+      } catch(e) { alert('Error processing checkout'); }
+      setLoading(false);
+  };
 
-            {/* Global Temporary Alert */}
-            {alertInfo.show && (
-                <Alert 
-                    variant={alertInfo.variant} 
-                    onClose={() => setAlertInfo({ ...alertInfo, show: false })} 
-                    dismissible 
-                    className="app-alert position-fixed top-0 start-50 translate-middle-x mt-3 shadow" 
-                    style={{ zIndex: 9999, width: 'auto' }} 
-                >
-                    {alertInfo.message}
-                </Alert>
-            )}
+  return (
+    <div className="App">
+      {loading && (
+          <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-flex justify-content-center align-items-center" style={{zIndex: 10000}}>
+            <Spinner animation="border" variant="light" />
+          </div>
+      )}
 
-            {/* Navbar */}
-            {!isLoginPage && (
-                <AppNavbar
-                    currentUser={currentUser}
-                    handleLogout={handleLogout}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    handleResetFilters={handleResetFilters}
-                    showAlert={showAlert}
-                    cartCount={cartCount} 
-                    onOpenCart={handleOpenCart} 
-                />
-            )}
+      {alertInfo.show && (
+        <Alert variant={alertInfo.variant} onClose={() => setAlertInfo({ ...alertInfo, show: false })} dismissible className="app-alert position-fixed top-0 start-50 translate-middle-x mt-3 shadow" style={{ zIndex: 9999, width: 'auto', top: '70px' }}>{alertInfo.message}</Alert>
+      )}
 
-            <Container fluid className="main-content py-3">
-                <Routes>
-                    <Route 
-                        path="/" 
-                        element={
-                            <HomePage 
-                                products={products} 
-                                categories={categories} 
-                                onAddToCart={handleShowAddQuantityModal} 
-                                loading={loadingData}
-                                searchTerm={searchTerm} 
-                            />
-                        } 
-                    />
-                    <Route path="/product/:slug" element={<ProductDetails onAddToCart={handleShowAddQuantityModal} />} />
-                    <Route path="/products" element={<ProductList products={products} categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} onAddToCart={handleShowAddQuantityModal} currentPage={currentPage} lastPage={lastPage} setCurrentPage={setCurrentPage} loading={loadingData} />} />
-                    <Route path="/product/:productId" element={<ProductDetails onAddToCart={handleShowAddQuantityModal} />} />
-                    <Route path="/cart" element={<Cart showAlert={showAlert} />} />
-                    <Route path="/checkout" element={<Checkout showAlert={showAlert} handleResetFilters={handleResetFilters} />} />
-                    <Route path="/login" element={<LoginPage handleLogin={handleLogin} />} />
-                    
-                    <Route path="/register" element={<Register onLogin={handleLogin} />} /> 
-                    
-                    <Route path="/forgot" element={<ForgotPassword />} />
-                    <Route path="/reset" element={<ResetPassword />} />
-                    
-                    <Route path="/orders" element={<OrderHistory />} /> 
-                        
-                    <Route path="/admin" element={<AdminDashboard token={localStorage.getItem('token')} />} />
-                    <Route path="/admin/edit/:productId" element={<EditProduct />} />
-                    <Route path="/admin/add" element={<AddProduct />} />
-                </Routes>
-            </Container>
+      {!isLoginPage && (
+        <Navbar
+          currentUser={currentUser}
+          handleLogout={handleLogout}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          handleResetFilters={handleResetFilters}
+          showAlert={showAlert}
+          cartCount={cartCount} 
+          onOpenCart={handleOpenCart} 
+        />
+      )}
 
-            {/* Modals */}
-            <AddQuantityModal show={showAddQtyModal} handleClose={handleCloseAddQuantityModal} product={productToAdd} handleAdd={handleConfirmAddToCart} />
-            
-            <CartModal 
-                show={showCart} 
-                onClose={() => setShowCart(false)} 
-                cartItems={cartItems}
-                onUpdateQty={updateQty} 
-                onRemove={handleRemoveClick} // Use new handler to open confirmation modal
-                onCheckout={() => { setShowCart(false); setShowCheckout(true); }} 
-                loading={loading}
-            />
-            <CheckoutModal 
-                show={showCheckout} 
-                onClose={() => setShowCheckout(false)} 
-                onConfirm={handleCheckout} 
-                loading={loading} 
-                cartItems={cartItems} 
-            />
-            
-            {/* Custom Confirmation Dialog for Cart Removal */}
-            <ConfirmationDialog
-                show={showRemoveConfirm}
-                onHide={() => setShowRemoveConfirm(false)}
-                onConfirm={handleConfirmRemoveFromCart}
-                title="Remove Item"
-                message="Are you sure you want to remove this item from your cart?"
-            />
-        </div>
-    );
+      <Container fluid className="main-content py-3">
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              <HomePage 
+                products={products} 
+                categories={categories} 
+                onAddToCart={handleShowAddQuantityModal} 
+                loading={loadingData}
+                searchTerm={searchTerm}
+              />
+            } 
+          />
+          <Route path="/product/:slug" element={<ProductDetails onAddToCart={handleShowAddQuantityModal} />} />
+          <Route path="/products" element={<ProductList products={products} categories={categories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} onAddToCart={handleShowAddQuantityModal} currentPage={currentPage} lastPage={lastPage} setCurrentPage={setCurrentPage} loading={loadingData} />} />
+          <Route path="/product/:productId" element={<ProductDetails products={products} onAddToCart={handleShowAddQuantityModal} />} />
+          <Route path="/cart" element={<Cart showAlert={showAlert} />} />
+          <Route path="/checkout" element={<Checkout showAlert={showAlert} handleResetFilters={handleResetFilters} />} />
+          <Route path="/login" element={<LoginPage handleLogin={handleLogin} />} />
+          
+          <Route path="/register" element={<Register onLogin={handleLogin} />} /> 
+          
+          <Route path="/forgot" element={<ForgotPassword />} />
+          <Route path="/reset" element={<ResetPassword />} />
+          <Route path="/admin" element={<AdminDashboard token={localStorage.getItem('token')} />} />
+          <Route path="/admin/edit/:productId" element={<EditProduct />} />
+          <Route path="/admin/add" element={<AddProduct />} />
+          
+          {/* 2. ROUTE ADDED HERE */}
+          <Route path="/profile" element={<ProfilePage showAlert={showAlert} />} />
+          
+        </Routes>
+      </Container>
+
+      <AddQuantityModal show={showAddQtyModal} handleClose={handleCloseAddQuantityModal} product={productToAdd} handleAdd={handleConfirmAddToCart} />
+      
+      <CartModal 
+         show={showCart} onClose={() => setShowCart(false)} cartItems={cartItems}
+         onUpdateQty={updateQty} onRemove={removeFromCart} onCheckout={() => setShowCheckout(true)} loading={loading}
+      />
+      <CheckoutModal show={showCheckout} onClose={() => setShowCheckout(false)} onConfirm={handleCheckout} loading={loading} />
+    </div>
+  );
 }
 
 function App() {
