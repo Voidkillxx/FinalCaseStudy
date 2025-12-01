@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { registerUser, resendOtp } from "../utils/api";
-import { Spinner } from "react-bootstrap";
+import { Spinner, Row, Col } from "react-bootstrap";
 import OtpPage from "./OtpPage";
 import "../Styles/Register.css";
+ 
+const logo = "https://placehold.co/100x100/41a85f/ffffff?text=JS"; 
 
 const LoadingModal = () => (
   <div className="loading-overlay">
@@ -65,70 +67,92 @@ function Register({ onLogin }) {
       
       <div className="register-card">
         {/* Header Section */}
+        <div className="back-link">
+             <Link to="/login">&larr; Back to Login</Link>
+        </div>
+
         <div className="register-header">
-             <button className="back-btn" onClick={() => navigate("/login")}>
-                &larr; Back to Login
-             </button>
-             <div className="title-group">
-                 <h2 className="store-name">JAKE STORE</h2>
-                 <h3 className="subtitle">Create Account</h3>
+             <div className="logo-container">
+                <img src={logo} alt="Jake Store Logo" className="logo" />
              </div>
+             <h2 className="store-name">JAKE STORE</h2>
+             <h3 className="subtitle">Create Account</h3>
+             <p className="text">Please fill in the details below</p>
         </div>
 
         <form onSubmit={handleRegister}>
-          <div className="row g-3">
-            <div className="col-md-6">
+          <Row className="g-3">
+            <Col md={6}>
                 <label className="form-label">First Name</label>
-                <input type="text" name="first_name" className="form-control custom-input" value={formData.first_name} onChange={handleChange} required disabled={loading} />
-            </div>
-            <div className="col-md-6">
+                <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} required disabled={loading} placeholder="e.g. John" />
+            </Col>
+            <Col md={6}>
                 <label className="form-label">Last Name</label>
-                <input type="text" name="last_name" className="form-control custom-input" value={formData.last_name} onChange={handleChange} required disabled={loading} />
-            </div>
-            <div className="col-md-6">
+                <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} required disabled={loading} placeholder="e.g. Doe" />
+            </Col>
+            
+            <Col md={6}>
                 <label className="form-label">Username</label>
-                <input type="text" name="username" className="form-control custom-input" value={formData.username} onChange={handleChange} required disabled={loading} />
-            </div>
-            <div className="col-md-6">
+                <input type="text" name="username" value={formData.username} onChange={handleChange} required disabled={loading} placeholder="Choose a username" />
+            </Col>
+            <Col md={6}>
                 <label className="form-label">Email Address</label>
-                <input type="email" name="email" className="form-control custom-input" value={formData.email} onChange={handleChange} required disabled={loading} />
-            </div>
-            <div className="col-md-6">
+                <input type="email" name="email" value={formData.email} onChange={handleChange} required disabled={loading} placeholder="name@example.com" />
+            </Col>
+            
+            <Col md={6}>
                 <label className="form-label">Phone Number</label>
-                <input type="text" name="phone_number" className="form-control custom-input" value={formData.phone_number} onChange={handleChange} required disabled={loading} />
-            </div>
-            <div className="col-md-6">
+                <input type="text" name="phone_number" value={formData.phone_number} onChange={handleChange} required disabled={loading} placeholder="+1 234 567 8900" />
+            </Col>
+            <Col md={6}>
                 <label className="form-label">Zipcode</label>
-                <input type="text" name="zipcode" className="form-control custom-input" value={formData.zipcode} onChange={handleChange} required disabled={loading} />
-            </div>
-            <div className="col-12">
+                <input type="text" name="zipcode" value={formData.zipcode} onChange={handleChange} required disabled={loading} placeholder="12345" />
+            </Col>
+            
+            <Col xs={12}>
                 <label className="form-label">Address</label>
-                <input type="text" name="address" className="form-control custom-input" value={formData.address} onChange={handleChange} required disabled={loading} />
-            </div>
+                <input type="text" name="address" value={formData.address} onChange={handleChange} required disabled={loading} placeholder="Street, City, State" />
+            </Col>
             
             {/* Password Fields */}
-            <div className="col-md-6">
+            <Col md={6}>
                 <label className="form-label">Password</label>
-                <div className="input-group custom-input-group">
-                    <input type={showPassword ? "text" : "password"} name="password" className="form-control custom-input border-end-0" value={formData.password} onChange={handleChange} required disabled={loading} />
-                    <button className="btn btn-outline-secondary toggle-btn" type="button" onClick={() => setShowPassword(!showPassword)}>
+                <div className="password-wrapper">
+                    <input 
+                        type={showPassword ? "text" : "password"} 
+                        name="password" 
+                        value={formData.password} 
+                        onChange={handleChange} 
+                        required 
+                        disabled={loading} 
+                        placeholder="••••••••"
+                    />
+                    <button type="button" className="toggle-password" onClick={() => setShowPassword(!showPassword)}>
                         {showPassword ? "Hide" : "Show"}
                     </button>
                 </div>
-            </div>
-            <div className="col-md-6">
-                <label className="form-label">Confirm</label>
-                <div className="input-group custom-input-group">
-                    <input type={showConfirm ? "text" : "password"} name="password_confirmation" className="form-control custom-input border-end-0" value={formData.password_confirmation} onChange={handleChange} required disabled={loading} />
-                    <button className="btn btn-outline-secondary toggle-btn" type="button" onClick={() => setShowConfirm(!showConfirm)}>
+            </Col>
+            <Col md={6}>
+                <label className="form-label">Confirm Password</label>
+                <div className="password-wrapper">
+                    <input 
+                        type={showConfirm ? "text" : "password"} 
+                        name="password_confirmation" 
+                        value={formData.password_confirmation} 
+                        onChange={handleChange} 
+                        required 
+                        disabled={loading}
+                        placeholder="••••••••" 
+                    />
+                    <button type="button" className="toggle-password" onClick={() => setShowConfirm(!showConfirm)}>
                         {showConfirm ? "Hide" : "Show"}
                     </button>
                 </div>
-            </div>
-          </div>
+            </Col>
+          </Row>
 
-          <button type="submit" className="btn submit-btn mt-4" disabled={loading}>
-            {loading ? "Processing..." : "Register"}
+          <button type="submit" className="register-btn" disabled={loading}>
+            {loading ? "Processing..." : "Create Account"}
           </button>
         </form>
       </div>

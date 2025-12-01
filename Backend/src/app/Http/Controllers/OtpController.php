@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log; 
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use App\Models\User;
 
@@ -57,8 +58,6 @@ class OtpController extends Controller
     }
 
     // --- 3. USED BY AUTH CONTROLLER (Register/Login) ---
-    // This is called by your AuthController.php. 
-    // We strictly send to $user->email here because this is for Login/Register.
     public function sendOtpApi(User $user)
     {
         $this->generateAndSend($user, $user->email);
@@ -76,7 +75,17 @@ class OtpController extends Controller
         // CHECK: Is the user trying to change their email?
         // If the React form sent an 'email' field, we use THAT as the destination.
         if ($request->filled('email')) {
-            $request->validate(['email' => 'required|email']);
+            // <--- ADDED: Validation to require current_password when changing email
+            $request->validate([
+                'email' => 'required|email',
+                'current_password' => 'required' 
+            ]);
+
+            // <--- ADDED: Check the password before sending OTP
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json(['message' => 'Incorrect password provided.'], 403);
+            }
+
             // OVERRIDE: Send OTP to the NEW email
             $destinationEmail = $request->email;
         }
@@ -90,7 +99,6 @@ class OtpController extends Controller
     }
 
     // --- 5. GENERATOR FUNCTION ---
-    // Now requires a specific $targetEmail to prevent ambiguity
     private function generateAndSend(User $user, string $targetEmail) 
     {
         $code = rand(100000, 999999);

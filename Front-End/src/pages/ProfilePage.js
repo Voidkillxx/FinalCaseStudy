@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, Tab, Tabs, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Tab, Tabs, Spinner, Alert, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 
 import '../Styles/ProfilePage.css';
@@ -13,8 +13,17 @@ const ProfilePage = ({ showAlert }) => {
     
     // Security States
     const [passwords, setPasswords] = useState({ current_password: '', new_password: '', new_password_confirmation: '' });
-    const [newEmail, setNewEmail] = useState('');
     
+    // Email Change States
+    const [newEmail, setNewEmail] = useState('');
+    const [emailChangePassword, setEmailChangePassword] = useState(''); 
+
+    // --- SHOW/HIDE PASSWORD STATES ---
+    const [showCurrentPass, setShowCurrentPass] = useState(false);
+    const [showNewPass, setShowNewPass] = useState(false);
+    const [showConfirmPass, setShowConfirmPass] = useState(false);
+    const [showEmailVerifyPass, setShowEmailVerifyPass] = useState(false);
+
     // --- SEPARATE OTP STATES ---
     const [showPasswordOtpInput, setShowPasswordOtpInput] = useState(false);
     const [passwordOtpLoading, setPasswordOtpLoading] = useState(false); 
@@ -26,28 +35,29 @@ const ProfilePage = ({ showAlert }) => {
     
     const [activeTab, setActiveTab] = useState('info');
 
+    // --- FIXED: fetchProfile inside useEffect to solve ESLint warning ---
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        const fetchProfile = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) { navigate('/login'); return; }
 
-    const fetchProfile = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) { navigate('/login'); return; }
-
-        try {
-            const res = await fetch('http://localhost:8095/api/user/profile', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setUser(data);
-            } else {
-                showAlert('Failed to load profile', 'danger');
+            try {
+                const res = await fetch('http://localhost:8095/api/user/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    setUser(data);
+                } else {
+                    showAlert('Failed to load profile', 'danger');
+                }
+            } catch (error) {
+                console.error(error);
             }
-        } catch (error) {
-            console.error(error);
-        }
-    };
+        };
+
+        fetchProfile();
+    }, [navigate, showAlert]); 
 
     const handleInfoUpdate = async (e) => {
         e.preventDefault();
@@ -85,9 +95,16 @@ const ProfilePage = ({ showAlert }) => {
     const requestOtp = async (actionType) => {
         const token = localStorage.getItem('token');
 
-        if (actionType === 'email' && !newEmail) {
-            showAlert('Please enter the new email address first.', 'warning');
-            return;
+        // Validation for Email Change
+        if (actionType === 'email') {
+            if (!newEmail) {
+                showAlert('Please enter the new email address first.', 'warning');
+                return;
+            }
+            if (!emailChangePassword) {
+                showAlert('Please enter your current password to verification.', 'warning');
+                return;
+            }
         }
 
         if (actionType === 'password') setPasswordOtpLoading(true);
@@ -99,7 +116,8 @@ const ProfilePage = ({ showAlert }) => {
         // --- PAYLOAD CREATION ---
         const payload = {};
         if (actionType === 'email') {
-            payload.email = newEmail; // Sending new email to backend
+            payload.email = newEmail; 
+            payload.current_password = emailChangePassword; 
         }
 
         try {
@@ -189,6 +207,7 @@ const ProfilePage = ({ showAlert }) => {
                 showAlert(data.message, 'success');
                 setUser({ ...user, email: newEmail });
                 setNewEmail('');
+                setEmailChangePassword(''); 
                 setEmailOtp(''); 
                 setShowEmailOtpInput(false);
             } else {
@@ -204,7 +223,8 @@ const ProfilePage = ({ showAlert }) => {
         <Container className="profile-container">
             <Card className="profile-card">
                 <Card.Header className="profile-header">
-                    <h3 className="profile-title">My Profile</h3>
+                    {/* Added text-success class to make the title green */}
+                    <h3 className="profile-title text-success">My Profile</h3>
                 </Card.Header>
                 <Card.Body>
                     <Tabs 
@@ -215,6 +235,12 @@ const ProfilePage = ({ showAlert }) => {
                             setShowEmailOtpInput(false); 
                             setPasswordOtp(''); 
                             setEmailOtp(''); 
+                            setEmailChangePassword('');
+                            // Reset visibility toggles
+                            setShowCurrentPass(false);
+                            setShowNewPass(false);
+                            setShowConfirmPass(false);
+                            setShowEmailVerifyPass(false);
                         }} 
                         className="mb-4"
                     >
@@ -265,14 +291,53 @@ const ProfilePage = ({ showAlert }) => {
                                 <h5>Change Password</h5>
                                 <Form onSubmit={handlePasswordChange}>
                                     <Row className="mb-3">
-                                        <Col md={4}><Form.Control type="password" placeholder="Current Password" value={passwords.current_password} onChange={e => setPasswords({...passwords, current_password: e.target.value})} required /></Col>
-                                        <Col md={4}><Form.Control type="password" placeholder="New Password" value={passwords.new_password} onChange={e => setPasswords({...passwords, new_password: e.target.value})} required /></Col>
-                                        <Col md={4}><Form.Control type="password" placeholder="Confirm New Password" value={passwords.new_password_confirmation} onChange={e => setPasswords({...passwords, new_password_confirmation: e.target.value})} required /></Col>
+                                        <Col md={4}>
+                                            <InputGroup>
+                                                <Form.Control 
+                                                    type={showCurrentPass ? "text" : "password"} 
+                                                    placeholder="Current Password" 
+                                                    value={passwords.current_password} 
+                                                    onChange={e => setPasswords({...passwords, current_password: e.target.value})} 
+                                                    required 
+                                                />
+                                                <Button variant="outline-secondary" onClick={() => setShowCurrentPass(!showCurrentPass)}>
+                                                    <i className={showCurrentPass ? "bi bi-eye-slash" : "bi bi-eye"}></i>
+                                                </Button>
+                                            </InputGroup>
+                                        </Col>
+                                        <Col md={4}>
+                                            <InputGroup>
+                                                <Form.Control 
+                                                    type={showNewPass ? "text" : "password"} 
+                                                    placeholder="New Password" 
+                                                    value={passwords.new_password} 
+                                                    onChange={e => setPasswords({...passwords, new_password: e.target.value})} 
+                                                    required 
+                                                />
+                                                <Button variant="outline-secondary" onClick={() => setShowNewPass(!showNewPass)}>
+                                                    <i className={showNewPass ? "bi bi-eye-slash" : "bi bi-eye"}></i>
+                                                </Button>
+                                            </InputGroup>
+                                        </Col>
+                                        <Col md={4}>
+                                            <InputGroup>
+                                                <Form.Control 
+                                                    type={showConfirmPass ? "text" : "password"} 
+                                                    placeholder="Confirm Password" 
+                                                    value={passwords.new_password_confirmation} 
+                                                    onChange={e => setPasswords({...passwords, new_password_confirmation: e.target.value})} 
+                                                    required 
+                                                />
+                                                <Button variant="outline-secondary" onClick={() => setShowConfirmPass(!showConfirmPass)}>
+                                                    <i className={showConfirmPass ? "bi bi-eye-slash" : "bi bi-eye"}></i>
+                                                </Button>
+                                            </InputGroup>
+                                        </Col>
                                     </Row>
                                     
                                     {!showPasswordOtpInput ? (
-                                        <Button variant="warning" onClick={() => requestOtp('password')} disabled={passwordOtpLoading}>
-                                            {passwordOtpLoading ? <span className="text-success fw-bold">Sending OTP...</span> : 'Request OTP to Change Password'}
+                                        <Button variant="success" onClick={() => requestOtp('password')} disabled={passwordOtpLoading}>
+                                            {passwordOtpLoading ? <span className="fw-bold">Sending OTP...</span> : 'Request OTP to Change Password'}
                                         </Button>
                                     ) : (
                                         <div className="d-flex align-items-center gap-10">
@@ -291,9 +356,26 @@ const ProfilePage = ({ showAlert }) => {
                                         <Form.Control type="email" placeholder="Enter new email address" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
                                     </Form.Group>
 
+                                    {/* Password Input for Email Change with Show/Hide */}
+                                    {!showEmailOtpInput && (
+                                        <Form.Group className="mb-3 input-email-change">
+                                            <InputGroup>
+                                                <Form.Control 
+                                                    type={showEmailVerifyPass ? "text" : "password"} 
+                                                    placeholder="Enter current password to verify" 
+                                                    value={emailChangePassword} 
+                                                    onChange={e => setEmailChangePassword(e.target.value)} 
+                                                />
+                                                <Button variant="outline-secondary" onClick={() => setShowEmailVerifyPass(!showEmailVerifyPass)}>
+                                                    <i className={showEmailVerifyPass ? "bi bi-eye-slash" : "bi bi-eye"}></i>
+                                                </Button>
+                                            </InputGroup>
+                                        </Form.Group>
+                                    )}
+
                                     {!showEmailOtpInput ? (
-                                        <Button variant="warning" onClick={() => requestOtp('email')} disabled={emailOtpLoading || !newEmail}>
-                                            {emailOtpLoading ? <span className="text-success fw-bold">Sending OTP...</span> : 'Request OTP to Change Email'}
+                                        <Button variant="success" onClick={() => requestOtp('email')} disabled={emailOtpLoading || !newEmail || !emailChangePassword}>
+                                            {emailOtpLoading ? <span className="fw-bold">Sending OTP...</span> : 'Request OTP to Change Email'}
                                         </Button>
                                     ) : (
                                         <div className="d-flex align-items-center gap-10">

@@ -5,34 +5,34 @@ body {
   margin: 0;
 }
 
-.reset-container {
+.register-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding: 20px;
+  padding: 40px 20px;
 }
 
-.reset-card {
+.register-card {
   background-color: #fff;
   width: 100%;
-  max-width: 420px;
+  max-width: 800px; /* Wider card for 2-column layout */
   border-radius: 25px;
-  padding: 40px 35px;
+  padding: 40px 40px;
   text-align: center;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   position: relative;
 }
 
 /* Back Link */
-.back {
+.back-link {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  top: 30px;
+  left: 30px;
   text-align: left;
 }
 
-.back a {
+.back-link a {
   text-decoration: none;
   color: #41a85f;
   font-weight: 600;
@@ -40,7 +40,7 @@ body {
   transition: color 0.3s ease;
 }
 
-.back a:hover {
+.back-link a:hover {
   color: #2f8449;
 }
 
@@ -49,77 +49,73 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 10px;
-  margin-top: 15px; 
+  margin-bottom: 15px;
+  margin-top: 10px; 
 }
 
 .logo {
-  width: 60px;
+  width: 70px;
   height: auto;
+  border-radius: 50%; /* Optional: Makes logo circular */
+  object-fit: contain;
 }
 
 /* Titles */
 .store-name {
   color: #41a85f;
-  font-size: 24px;
-  font-weight: 700;
-  margin-top: 5px;
+  font-size: 26px;
+  font-weight: 800;
+  margin-top: 0;
   margin-bottom: 5px;
+  letter-spacing: 1px;
 }
 
-/* --- UPDATED TO MATCH YOUR IMAGE (DARK & CLEAN) --- */
 .subtitle {
-  color: #333; /* Changed from Green to Dark Grey */
+  color: #333;
   font-weight: 700; 
-  font-size: 20px;
+  font-size: 22px;
   margin-bottom: 5px;
 }
 
 .text {
-  color: #444; /* Changed from Light Grey to Darker Grey */
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 25px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 400;
+  margin-bottom: 30px;
 }
 
-/* Inputs */
+/* Form Styles */
 .form-label {
   display: block;
   text-align: left;
   color: #41a85f;
   font-weight: 600;
   font-size: 13px;
-  margin-top: 15px;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+  margin-left: 5px;
 }
 
-.reset-card input {
+.register-card input {
   width: 100%;
   background-color: #f7f7f7;
-  border: none;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
   padding: 12px 15px;
   font-size: 14px;
   color: #333;
   box-sizing: border-box;
+  transition: all 0.3s ease;
 }
 
-.reset-card input:focus {
-  outline: 2px solid #41a85f50;
+.register-card input:focus {
+  outline: none;
+  border-color: #41a85f;
   background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(65, 168, 95, 0.1);
 }
 
-/* Special Styling for OTP Input */
-.otp-input {
-  text-align: center;
-  font-size: 24px !important;
-  letter-spacing: 8px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-/* Password Container & Toggle */
-.password-container {
+/* Password Container */
+.password-wrapper {
   position: relative;
 }
 
@@ -135,6 +131,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   padding: 0;
+  z-index: 5;
 }
 
 .toggle-password:hover {
@@ -142,71 +139,63 @@ body {
 }
 
 /* Buttons */
-.reset-btn {
+/* Explicitly defining styles to ensure it looks like a button regardless of Bootstrap */
+.register-btn {
   width: 100%;
-  background-color: #41a85f;
-  color: white;
+  max-width: 300px;
+  background-color: #41a85f !important; /* Force green background */
+  color: white !important; /* Force white text */
   border: none;
-  border-radius: 25px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 14px 20px;
   font-size: 16px;
+  font-weight: 700;
+  margin-top: 30px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(65, 168, 95, 0.2);
   cursor: pointer;
-  font-weight: 600;
-  margin-top: 25px;
-  transition: background 0.3s;
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.reset-btn:hover {
-  background-color: #369c54;
+.register-btn:hover {
+  background-color: #369c54 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(65, 168, 95, 0.3);
+  color: white !important;
 }
 
-.reset-btn:disabled {
-  background-color: #a8dcb5;
+.register-btn:disabled {
+  background-color: #a8dcb5 !important;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-/* Resend Link */
-.resend-container {
-  margin-top: 15px;
-}
-
-.resend-link {
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.resend-link:disabled {
-  color: #999;
-  text-decoration: none;
-  cursor: default;
-}
-
-/* --- MODALS --- */
-.modal-overlay {
+/* Loading Modal */
+.loading-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(255, 255, 255, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
-.modal-content-box {
+.loading-content {
   background: white;
   padding: 30px;
   border-radius: 20px;
   text-align: center;
-  width: 300px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  border: 1px solid #e0e0e0;
 }
 
 .spinner-size {
@@ -214,19 +203,15 @@ body {
   height: 3rem;
 }
 
-.status-box.error .icon-box { color: #dc3545; font-size: 3rem; }
-.status-box.success .icon-box { color: #41a85f; font-size: 3rem; }
-
-.btn-modal {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 15px;
-  color: white;
-  font-weight: 600;
-  margin-top: 15px;
-  cursor: pointer;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .register-card {
+    padding: 30px 20px;
+    margin-top: 40px; /* Space for back button */
+  }
+  
+  .back-link {
+    top: 10px;
+    left: 10px;
+  }
 }
-
-.btn-modal.error { background-color: #dc3545; }
-.btn-modal.success { background-color: #41a85f; }
