@@ -19,28 +19,45 @@ const LoadingModal = () => (
 function Register({ onLogin }) {
   const [view, setView] = useState('register');
   const [formData, setFormData] = useState({
-    username: "", first_name: "", last_name: "", email: "", 
-    phone_number: "", address: "", zipcode: "", 
-    password: "", password_confirmation: ""
+    first_name: "",
+    last_name: "",
+    username: "",
+    email: "",
+    phone_number: "",
+    zipcode: "",
+    address: "",
+    password: "",
+    password_confirmation: ""
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMsg, setDialogMsg] = useState("");
+
+  const openDialog = (msg) => {
+    setDialogMsg(msg);
+    setDialogOpen(true);
+  };
+
+  const handleChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.password_confirmation) { alert("Passwords do not match."); return; }
-    
+
+    if (formData.password !== formData.password_confirmation) {
+      openDialog("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
     try {
       await registerUser(formData);
       setView('otp');
     } catch (err) {
-      alert(err.message || "Registration failed.");
+      openDialog(err.message || "Registration failed.");
     } finally {
       setLoading(false);
     }
@@ -79,6 +96,17 @@ function Register({ onLogin }) {
              <h3 className="subtitle">Create Account</h3>
              <p className="text">Please fill in the details below</p>
         </div>
+      )}
+
+      {loading && <LoadingModal />}
+
+      <div className="register-card">
+        <button className="back-btn" onClick={() => navigate("/login")}>
+          ← Back to Login
+        </button>
+
+        <h2 className="store-name">JAKE STORE</h2>
+        <p className="subtitle">Create Account</p>
 
         <form onSubmit={handleRegister}>
           <Row className="g-3">
@@ -155,6 +183,7 @@ function Register({ onLogin }) {
             {loading ? "Processing..." : "Create Account"}
           </button>
         </form>
+
       </div>
     </div>
   );

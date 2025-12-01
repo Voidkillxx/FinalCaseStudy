@@ -86,8 +86,8 @@ body {
 
 /* Form Styles */
 .form-label {
-  display: block;
-  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
   color: #41a85f;
   font-weight: 600;
   font-size: 13px;
@@ -123,9 +123,8 @@ body {
   position: absolute;
   right: 15px;
   top: 50%;
+  right: 12px;
   transform: translateY(-50%);
-  background: none;
-  border: none;
   color: #41a85f;
   cursor: pointer;
   font-size: 12px;
