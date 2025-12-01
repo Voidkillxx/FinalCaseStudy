@@ -6,44 +6,44 @@ const BASE_URL = 'http://localhost:8095/api';
  * Handles Headers (JSON + Authorization) and Errors
  */
 export const apiRequest = async (endpoint, method = 'GET', body = null) => {
-  const token = localStorage.getItem('token');
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  const token = localStorage.getItem('token');
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-  const config = {
-    method,
-    headers,
-  };
+  const config = {
+    method,
+    headers,
+  };
 
-  if (body) {
-    config.body = JSON.stringify(body);
-  }
+  if (body) {
+    config.body = JSON.stringify(body);
+  }
 
-  try {
-    const response = await fetch(`${BASE_URL}${endpoint}`, config);
-    const data = await response.json();
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, config);
+    const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || 'API Request Failed');
-    }
+    if (!response.ok) {
+      throw new Error(data.message || 'API Request Failed');
+    }
 
-    // Helper: If API returns a paginated object { data: [...] }, return the data array directly for easier frontend use in lists
-    // But we keep the original structure if it's not a list or if we need pagination metadata later.
-    // For simplicity in your components right now, I will return data exactly as is, 
-    // and we handle the .data property in the components (App.js / ProductList.js).
-    return data;
+    // Helper: If API returns a paginated object { data: [...] }, return the data array directly for easier frontend use in lists
+    // But we keep the original structure if it's not a list or if we need pagination metadata later.
+    // For simplicity in your components right now, I will return data exactly as is, 
+    // and we handle the .data property in the components (App.js / ProductList.js).
+    return data;
 
-  } catch (error) {
-    console.error(`API Error (${endpoint}):`, error.message);
-    throw error;
-  }
+  } catch (error) {
+    console.error(`API Error (${endpoint}):`, error.message);
+    throw error;
+  }
 };
 
 // --- API ENDPOINTS ---
@@ -62,11 +62,11 @@ export const resetPassword = (data) => apiRequest('/reset-password', 'POST', dat
 
 // 3. CATALOG (Products & Categories)
 export const fetchProducts = (page = 1, search = '', categorySlug = null) => {
-  let query = `?page=${page}`;
-  if (search) query += `&search=${search}`;
-  if (categorySlug) query += `&category=${categorySlug}`;
-  
-  return apiRequest(`/products${query}`);
+  let query = `?page=${page}`;
+  if (search) query += `&search=${search}`;
+  if (categorySlug) query += `&category=${categorySlug}`;
+  
+  return apiRequest(`/products${query}`);
 };
 export const fetchProduct = (id) => apiRequest(`/products/${id}`);
 export const fetchSingleProduct = (productId) => apiRequest(`/products/${productId}`);
@@ -92,7 +92,7 @@ export const clearCartApi = () => apiRequest('/cart/clear', 'DELETE');
 export const checkout = (data) => apiRequest('/checkout', 'POST', data);
 export const fetchOrders = () => apiRequest('/orders');
 export const fetchOrder = (id) => apiRequest(`/orders/${id}`);
-export const cancelOrder = (id) => apiRequest(`/orders/${id}/cancel`, 'PUT');
+export const cancelOrder = (id) => apiRequest(`/orders/${id}/cancel`, 'PUT'); // Correct endpoint for cancellation
 
 // 7. ADMIN (Products, Categories, Users)
 export const createProduct = (data) => apiRequest('/products', 'POST', data);

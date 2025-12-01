@@ -20,7 +20,6 @@ body {
   position: relative;
 }
 
-/* ✅ Back button matches register page style */
 .back-btn {
   position: absolute;
   top: 15px;
@@ -66,15 +65,20 @@ body {
   padding: 12px;
   font-size: 14px;
   margin-top: 6px;
+  box-sizing: border-box;
 }
 
 .password-container {
   position: relative;
 }
 
+.password-container input {
+  padding-right: 80px !important;
+}
+
 .toggle-password {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -83,6 +87,7 @@ body {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
+  z-index: 3;
 }
 
 .login-card .btn {
@@ -114,13 +119,13 @@ body {
 }
 
 .logo-container {
-    display: flex;
-    justify-content: center; /* Center the logo horizontally */
-    align-items: center;
-    margin-bottom: 10px; /* Space below the logo */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .logo {
-    width: 60px; /* Set a standard size for the logo */
-    height: auto;
+  width: 60px;
+  height: auto;
 }
