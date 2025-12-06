@@ -40,25 +40,20 @@ class DatabaseSeeder extends Seeder
 
     
         
-        // Create Categories first
         $categories = Category::factory(4)->create();
 
-        // Create Products using the existing categories
         $products = Product::factory(9)
             ->recycle($categories) 
             ->create();
 
-        // Create Users and link related data to them
-        User::factory(5)
+        User::factory(100)
             ->create()
             ->each(function ($user) use ($products) {
                 
-                // --- SEED CART ---
                 $cart = Cart::factory()->create([
                     'user_id' => $user->id
                 ]);
 
-                // Pick 1-4 UNIQUE products first.
                 $cartProducts = $products->random(rand(1, 4));
 
                 foreach ($cartProducts as $product) {
@@ -68,31 +63,33 @@ class DatabaseSeeder extends Seeder
                     ]);
                 }
 
-                // --- SEED ORDERS ---
                 Order::factory(rand(0, 5))->create([
                     'user_id' => $user->id
                 ])->each(function ($order) use ($products) {
                     
-                    // Pick 1-10 UNIQUE products for this specific order
                     $orderProducts = $products->random(rand(1, 9));
-                    $totalAmount = 0; // Added variable to track total
+                    $calculatedSubtotal = 0; 
 
                     foreach ($orderProducts as $product) {
-                        $qty = rand(1, 5); // Generate quantity once to use for math
+                        $qty = rand(1, 5); 
 
                         OrderItem::factory()->create([
                             'order_id' => $order->id,
                             'product_id' => $product->id,
-                            'quantity' => $qty, // Ensure quantity is saved
+                            'quantity' => $qty, 
                             'price_at_purchase' => $product->price, 
                         ]);
 
-                        // Sum up the total
-                        $totalAmount += ($product->price * $qty);
+                        $calculatedSubtotal += ($product->price * $qty);
                     }
 
-                    // Update the Order Total (Crucial for accurate reports)
-                    $order->update(['total_amount' => $totalAmount]);
+                    $shippingFee = $order->shipping_fee;
+                    $finalTotal = $calculatedSubtotal + $shippingFee;
+
+                    $order->update([
+                        'subtotal' => $calculatedSubtotal,
+                        'total_amount' => $finalTotal
+                    ]);
                 });
             });
             

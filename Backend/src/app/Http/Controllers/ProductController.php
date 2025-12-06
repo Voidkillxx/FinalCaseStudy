@@ -15,6 +15,12 @@ class ProductController extends Controller
     {
         $query = Product::query();
 
+        $user = $request->user('sanctum');
+
+        if (!$user || !$user->is_admin) {
+            $query->where('is_active', true);
+        }
+
         if ($request->filled('category')) {
             $slugs = explode(',', $request->category);
             $query->whereHas('category', function (Builder $q) use ($slugs) {
@@ -45,11 +51,20 @@ class ProductController extends Controller
 
     public function show($slug)
     {
-        $product = Product::where('slug', $slug)->with('category')->first();
-
+        // FIX: Do not reuse a modified builder variable ($query) across fallback checks.
+        // Try finding by slug first
+        $product = Product::with('category')->where('slug', $slug)->first();
+        
+        // If not found by slug, try finding by ID
         if (!$product) {
             $product = Product::with('category')->find($slug);
-            if (!$product) return response()->json(['message' => 'Product not found'], 404);
+        }
+
+        if (!$product) return response()->json(['message' => 'Product not found'], 404);
+
+        $user = request()->user('sanctum');
+        if ((!$user || !$user->is_admin) && !$product->is_active) {
+           return response()->json(['message' => 'Product not available'], 404);
         }
 
         return response()->json($product);
@@ -64,22 +79,28 @@ class ProductController extends Controller
             'category_id'  => 'required|exists:categories,id',
             'description'  => 'nullable|string',
             'image_url'    => 'nullable|string',
+            'is_active'    => 'boolean',
+            'discount'     => 'nullable|numeric|min:0|max:100',
         ]);
 
         $validated['slug'] = Str::slug($validated['product_name']) . '-' . uniqid();
         
+        $validated['is_active'] = $validated['is_active'] ?? true;
+
         $product = Product::create($validated);
 
         return response()->json($product, 201);
     }
 
-    // --- FIX IS HERE IN UPDATE ---
     public function update(Request $request, $id)
     {
         $product = Product::find($id);
         if (!$product) return response()->json(['message' => 'Product not found'], 404);
 
-        // FIX: Ensure 'discount' is validated here. Use nullable so it's not required.
+        if ($request->has('is_visible')) {
+            $request->merge(['is_active' => $request->boolean('is_visible')]);
+        }
+
         $validated = $request->validate([
             'product_name' => 'sometimes|string|max:255',
             'price'        => 'sometimes|numeric|min:0',
@@ -88,7 +109,7 @@ class ProductController extends Controller
             'description'  => 'sometimes|string',
             'image_url'    => 'sometimes|string',
             'is_active'    => 'sometimes|boolean',
-            'discount'     => 'nullable|numeric|min:0|max:100', // <--- CRITICAL FIX: Validation
+            'discount'     => 'nullable|numeric|min:0|max:100',
         ]);
 
         if (isset($validated['product_name'])) {

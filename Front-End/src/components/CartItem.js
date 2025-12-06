@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react'; 
-import { Row, Col, Image, Button, Form, Modal, Spinner } from 'react-bootstrap'; // Added Spinner
+import { Row, Col, Image, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { CartContext } from '../context/CartContext';
+// Ensure this matches your file path exactly
 import { calculateSellingPrice } from '../utils/PricingUtils'; 
 import '../Styles/CartItem.css'; 
 
@@ -11,13 +12,11 @@ const CartItem = ({ item }) => {
     decreaseQuantity,
     selectedItems,
     toggleSelectItem,
-    loading: contextLoading // Renamed to avoid confusion with local removing state
+    loading: contextLoading
   } = useContext(CartContext);
 
   // --- State ---
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
-  // NEW: Local state to track if we are currently deleting this specific item
   const [isRemoving, setIsRemoving] = useState(false);
 
   if (!item) return null;
@@ -32,25 +31,19 @@ const CartItem = ({ item }) => {
   };
 
   const handleCloseModal = () => {
-      // Only allow closing if we aren't in the middle of a delete
       if (!isRemoving) {
         setShowDeleteModal(false);
       }
   };
 
-  // UPDATED: Async handler to show loading state while database updates
   const confirmRemove = async () => {
       try {
-          setIsRemoving(true); // 1. Start loading (Spinner appears)
-          
-          // 2. Wait for the context to finish the API call
+          setIsRemoving(true);
           await removeFromCart(item.id); 
-          
-          // 3. Close modal (The component will likely unmount immediately after this)
           setShowDeleteModal(false);
       } catch (error) {
           console.error("Failed to remove item:", error);
-          setIsRemoving(false); // Stop loading if there was an error
+          setIsRemoving(false);
           alert("Failed to remove item. Please try again.");
       }
   };
@@ -74,12 +67,17 @@ const CartItem = ({ item }) => {
 
       increaseQuantity(item.id);
   };
-  // ---------------------------------
 
+  // --- Price Logic ---
   const quantity = item.quantity || 0;
   const price = parseFloat(product.price) || 0;
   const discount = parseFloat(product.discount) || 0;
+  
+  // 1. Calculate the Selling Price (Discounted)
   const sellingPrice = calculateSellingPrice(price, discount);
+
+  // 2. Determine if we need to show the "Discounted" UI
+  const hasDiscount = discount > 0 && discount <= 100;
 
   return (
     <>
@@ -101,6 +99,7 @@ const CartItem = ({ item }) => {
                 fluid 
                 rounded 
                 style={{width: '100%', height: '100%', objectFit: 'cover'}}
+                onError={(e) => { e.target.onerror = null; e.target.src = '/img/placeholder.png'; }}
              />
           </div>
         </Col>
@@ -110,9 +109,21 @@ const CartItem = ({ item }) => {
           <h5 className="cart-item-name text-truncate mb-1" title={product.product_name}>
               {product.product_name || 'Unknown Product'}
           </h5> 
-          <p className="cart-item-unit-price mb-0 text-muted small">
-              Unit: ₱{sellingPrice.toFixed(2)}
-          </p> 
+          
+          {/* Unit Price Display */}
+          <div className="cart-item-price-info">
+              {hasDiscount ? (
+                  <div className="d-flex flex-column flex-sm-row align-items-start align-items-sm-center">
+                    <span className="text-muted text-decoration-line-through me-2 small">₱{price.toFixed(2)}</span>
+                    <span className="text-success fw-bold me-2">₱{sellingPrice.toFixed(2)}</span>
+                    <span className="badge bg-danger" style={{fontSize: '0.65rem'}}>{discount}% OFF</span>
+                  </div>
+              ) : (
+                  <p className="cart-item-unit-price mb-0 text-muted small">
+                      Unit: ₱{sellingPrice.toFixed(2)}
+                  </p> 
+              )}
+          </div>
         </Col>
 
         {/* 3. Right: Actions (Qty, Total, Remove) */}
@@ -126,7 +137,7 @@ const CartItem = ({ item }) => {
                   <Button variant="outline-secondary" size="sm" className="qty-btn" onClick={handleIncrease} disabled={contextLoading || isRemoving}>+</Button>
               </div>
 
-              {/* Total Price */}
+              {/* Line Total Price (Quantity * Discounted Price) */}
               <strong className="cart-item-total mb-1 mb-md-0 mx-md-3 text-success">
                   ₱{(quantity * sellingPrice).toFixed(2)}
               </strong> 
@@ -144,8 +155,8 @@ const CartItem = ({ item }) => {
         show={showDeleteModal} 
         onHide={handleCloseModal} 
         centered
-        backdrop={isRemoving ? 'static' : true} // Prevent clicking outside while loading
-        keyboard={!isRemoving} // Prevent ESC key while loading
+        backdrop={isRemoving ? 'static' : true} 
+        keyboard={!isRemoving}
       >
         <Modal.Header closeButton={!isRemoving}>
           <Modal.Title>Remove Item</Modal.Title>
@@ -158,7 +169,6 @@ const CartItem = ({ item }) => {
             Cancel
           </Button>
           
-          {/* UPDATED: Button shows Spinner when isRemoving is true */}
           <Button variant="danger" onClick={confirmRemove} disabled={isRemoving}>
             {isRemoving ? (
                 <>

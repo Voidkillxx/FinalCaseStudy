@@ -68,12 +68,19 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  // Logic: Calculate total based on SELECTED items and their DISCOUNTED prices
   const selectedSubtotal = cartItems
     .filter(item => selectedItems.includes(item.id))
     .reduce((total, item) => {
       if (!item.product) return total;
+      
       const validQuantity = parseInt(item.quantity) || 0;
-      const finalPrice = calculateSellingPrice(item.product.price, item.product.discount);
+      const price = parseFloat(item.product.price) || 0;
+      const discount = parseFloat(item.product.discount) || 0;
+      
+      // Use utility to get the real discounted price
+      const finalPrice = calculateSellingPrice(price, discount);
+      
       return total + (validQuantity * finalPrice);
     }, 0);
 

@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
@@ -19,13 +18,17 @@ class Product extends Model
         'slug',
         'category_id',
         'image_url',
-        'is_active',
+        'is_active', 
         'discount',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'price' => 'decimal:2',
     ];
 
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
-    // ... rest of model ...
 }

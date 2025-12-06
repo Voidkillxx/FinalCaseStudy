@@ -1,7 +1,9 @@
 import React from 'react';
 import { Card, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import '../Styles/ProductCard.css';
+// Ensure this path matches your project structure
+import '../Styles/ProductCard.css'; 
+// Ensure you have this utility or remove the import if not needed
 import { calculateSellingPrice } from '../utils/PricingUtils'; 
 
 const ProductCard = ({ product, onAddToCart }) => {
@@ -12,7 +14,15 @@ const ProductCard = ({ product, onAddToCart }) => {
   // Handle discounts (if your backend supports it, otherwise default to 0)
   const discount = product.discount || 0;
   const hasDiscount = discount > 0;
-  const sellingPrice = calculateSellingPrice(product.price, discount); 
+  
+  // Safety check for pricing utility
+  let sellingPrice = parseFloat(product.price);
+  if (typeof calculateSellingPrice === 'function') {
+      sellingPrice = calculateSellingPrice(product.price, discount);
+  } else if (hasDiscount) {
+      // Fallback calculation if utility is missing
+      sellingPrice = product.price - (product.price * (discount / 100));
+  }
 
   // FIX: Use Slug for URL (Fall back to ID if slug is missing)
   const productLink = `/product/${product.slug || product.id}`;

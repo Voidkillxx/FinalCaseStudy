@@ -15,7 +15,6 @@ class ProductFactory extends Factory
             'product_name' => 'Default Product',
             'slug' => 'default-product',
             'price' => 10.00,
-            'stock' => 10,
             'is_active' => true,
             'description' => 'Default description',
             'category_id' => 1,
@@ -110,10 +109,10 @@ class ProductFactory extends Factory
 
             return [
                 'product_name' => $item['name'],
-                'slug' => Str::slug($item['name']) . '-' . ($sequence->index + 1), // Ensure unique slug
+                'slug' => Str::slug($item['name']) . '-' . ($sequence->index + 1), 
                 'price' => $item['price'],
-                'stock' => $item['stock'],
-                'is_active' => true,
+                'stock' => fake()->numberBetween(1, 100),                
+                 'is_active' => true,
                 'description' => $item['description'],
                 'category_id' => $item['categoryId'], 
                 'image_url' => $item['imageUrl'],
