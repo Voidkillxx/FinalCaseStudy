@@ -7,13 +7,15 @@ import "../Styles/HomePage.css";
 
 const HomePage = ({ products, categories, onAddToCart, loading, searchTerm }) => {
 
-  // Logic: If a search term exists, consider it "Searching"
-  // Ensure searchTerm is a string before checking length to prevent crashes
   const isSearching = searchTerm && typeof searchTerm === 'string' && searchTerm.trim().length > 0;
 
-  // Logic: If searching, show ALL filtered products. 
-  // If not searching, only show the first 8 as "Featured".
-  const displayedProducts = isSearching ? products : (products || []).slice(0, 8);
+  let displayedProducts = products || [];
+
+  if (!isSearching) {
+    const inStock = displayedProducts.filter(product => parseInt(product.stock) > 0);
+    const outOfStock = displayedProducts.filter(product => parseInt(product.stock) <= 0);
+    displayedProducts = [...inStock, ...outOfStock].slice(0, 8);
+  }
 
   if (loading) {
     return (
@@ -28,7 +30,6 @@ const HomePage = ({ products, categories, onAddToCart, loading, searchTerm }) =>
   return (
     <Container fluid className="home-container p-0">
       
-      {/* 1. HERO SECTION - Only show if NOT searching */}
       {!isSearching && (
         <div className="home-hero mb-5">
           <div className="hero-content">
@@ -40,7 +41,6 @@ const HomePage = ({ products, categories, onAddToCart, loading, searchTerm }) =>
         </div>
       )}
 
-      {/* 2. CATEGORY SECTION - Only show if NOT searching */}
       {!isSearching && (
         <section id="categories" className="category-section mb-5">
           <Container>
@@ -62,17 +62,15 @@ const HomePage = ({ products, categories, onAddToCart, loading, searchTerm }) =>
         </section>
       )}
 
-      {/* 3. PRODUCT SECTION - Changes based on search state */}
       <section id="products" className="product-section mb-5">
         <Container>
-          {/* Dynamic Title - UPDATED: Exact format "Search result for 'term'" */}
           <h2 className="home-section-title mb-4 text-start text-success fw-bold">
             {isSearching ? `Search result for '${searchTerm}'` : "Featured Products"}
           </h2>
           
-          <Row className="g-2">
+          {/* 'justify-content-center' keeps the grid balanced if TOTAL products < 8 */}
+          <Row className="g-2 justify-content-center">
             {(!displayedProducts || displayedProducts.length === 0) ? (
-               // Message if no products found
                <div className="text-center py-5">
                  <p className="text-muted fs-5">
                    {isSearching 
@@ -86,20 +84,18 @@ const HomePage = ({ products, categories, onAddToCart, loading, searchTerm }) =>
                  )}
                </div>
             ) : (
-               // Display Products (All if searching, limited if featured)
                displayedProducts.map((product) => (
-                 <Col key={product.id} xs={3} sm={3} md={3} lg={3}>
+                 <Col key={product.id} xs={6} sm={6} md={4} lg={3}>
                    <ProductCard product={product} onAddToCart={onAddToCart} />
                  </Col>
                ))
             )}
           </Row>
           
-          {/* Show "View All" button ONLY if NOT searching */}
           {!isSearching && products && products.length > 8 && (
              <div className="text-center mt-4">
                 <Link to="/products">
-                    <button className="btn btn-outline-success">View All Products</button>
+                   <button className="btn btn-outline-success">View All Products</button>
                 </Link>
              </div>
           )}

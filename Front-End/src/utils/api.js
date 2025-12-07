@@ -1,10 +1,6 @@
-// Base URL for your Laravel API
 const BASE_URL = 'http://localhost:8095/api';
 
-/**
- * Generic Fetch Wrapper
- * Handles Headers (JSON + Authorization) and Errors
- */
+
 export const apiRequest = async (endpoint, method = 'GET', body = null) => {
   const token = localStorage.getItem('token');
   
@@ -34,10 +30,6 @@ export const apiRequest = async (endpoint, method = 'GET', body = null) => {
       throw new Error(data.message || 'API Request Failed');
     }
 
-    // Helper: If API returns a paginated object { data: [...] }, return the data array directly for easier frontend use in lists
-    // But we keep the original structure if it's not a list or if we need pagination metadata later.
-    // For simplicity in your components right now, I will return data exactly as is, 
-    // and we handle the .data property in the components (App.js / ProductList.js).
     return data;
 
   } catch (error) {
@@ -52,7 +44,7 @@ export const apiRequest = async (endpoint, method = 'GET', body = null) => {
 export const loginUser = (creds) => apiRequest('/login', 'POST', creds);
 export const registerUser = (data) => apiRequest('/register', 'POST', data);
 export const verifyOtp = (data) => apiRequest('/otp/verify', 'POST', data);
-export const checkOtpPublic = (data) => apiRequest('/otp/check', 'POST', data); // For forgot password flow
+export const checkOtpPublic = (data) => apiRequest('/otp/check', 'POST', data); 
 export const resendOtp = (data) => apiRequest('/resend-otp', 'POST', data);
 export const logoutUser = () => apiRequest('/logout', 'POST');
 
@@ -92,7 +84,11 @@ export const clearCartApi = () => apiRequest('/cart/clear', 'DELETE');
 export const checkout = (data) => apiRequest('/checkout', 'POST', data);
 export const fetchOrders = () => apiRequest('/orders');
 export const fetchOrder = (id) => apiRequest(`/orders/${id}`);
-export const cancelOrder = (id) => apiRequest(`/orders/${id}/cancel`, 'PUT');
+export const cancelOrder = (id) => apiRequest(`/orders/${id}/cancel`, 'PUT'); 
+
+// --- NEW ORDER FUNCTIONS ---
+export const requestCancellation = (orderId) => apiRequest(`/orders/${orderId}/request-cancel`, 'PUT');
+export const receiveOrder = (orderId) => apiRequest(`/orders/${orderId}/receive`, 'PUT');
 
 // 7. ADMIN (Products, Categories, Users)
 export const createProduct = (data) => apiRequest('/products', 'POST', data);
@@ -107,3 +103,4 @@ export const updateOrderStatus = (id, status) => apiRequest(`/admin/orders/${id}
 
 export const fetchUsers = () => apiRequest('/users');
 export const updateUserRole = (id, isAdmin) => apiRequest(`/users/${id}`, 'PUT', { is_admin: isAdmin });
+export const deleteUser = (id) => apiRequest(`/users/${id}`, 'DELETE');

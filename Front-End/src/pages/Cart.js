@@ -4,13 +4,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import RemoveItemModal from '../components/RemoveItemModal';
 import CartItem from '../components/CartItem';
+import { calculateSellingPrice } from '../utils/PricingUtils'; 
 import '../Styles/Cart.css'; 
 
 const Cart = ({ showAlert }) => {
   const {
     cartItems,
     selectedItems,
-    selectedSubtotal,
+    // selectedSubtotal, // We will ignore this and calculate locally to ensure discount accuracy
     toggleSelectAll,
     clearCart,
     removeFromCart,
@@ -20,38 +21,89 @@ const Cart = ({ showAlert }) => {
   
   const navigate = useNavigate();
 
+  // --- State for Modals ---
   const [showClearModal, setShowClearModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
+
+  // --- Local state for "Clearing..." spinner ---
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     refreshCart();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Strict check for "Select All"
   const isAllSelected = cartItems.length > 0 && cartItems.every(item => selectedItems.includes(item.id));
 
+  // --- TOTAL CALCULATION LOGIC ---
+  // We calculate this locally to guarantee it uses the Discounted Price, not the Original Price.
+  const calculatedSubtotal = cartItems.reduce((total, item) => {
+      // Only add if the item is selected
+      if (selectedItems.includes(item.id)) {
+          const product = item.product || {};
+          const price = parseFloat(product.price) || 0;
+          const discount = parseFloat(product.discount) || 0;
+          const qty = item.quantity || 0;
+
+          // Use the utility to get the real selling price
+          const finalPrice = calculateSellingPrice(price, discount);
+          
+          return total + (finalPrice * qty);
+      }
+      return total;
+  }, 0);
+
   // --- Modal Handlers ---
+
   const handleShowClearModal = () => setShowClearModal(true);
-  const handleCloseClearModal = () => setShowClearModal(false);
+  
+  const handleCloseClearModal = () => {
+      if (!isClearing) {
+        setShowClearModal(false);
+      }
+  };
+
   const handleConfirmClear = async () => { 
-      await clearCart(); 
-      handleCloseClearModal(); 
+      try {
+          setIsClearing(true); 
+          await clearCart();   
+          setIsClearing(false); 
+          setShowClearModal(false); 
+          
+          if(showAlert) showAlert('Cart cleared successfully!', 'success');
+      } catch (error) {
+          setIsClearing(false);
+          if(showAlert) showAlert('Failed to clear cart.', 'danger');
+      }
   };
   
   const handleShowRemoveModal = (item) => { setItemToRemove(item); setShowRemoveModal(true); };
   const handleCloseRemoveModal = () => { setItemToRemove(null); setShowRemoveModal(false); };
+
+  // --- UPDATED: Get Product Name & Trigger Notification ---
   const handleConfirmRemove = async (itemId) => { 
-      await removeFromCart(itemId); 
+      // 1. Capture the product name BEFORE deleting/closing modal
+      const productName = itemToRemove?.product?.product_name || 'Item';
+
+      // 2. Call Context function to remove item
+      const success = await removeFromCart(itemId); 
+      
+      // 3. Close the confirmation dialog
       handleCloseRemoveModal(); 
+
+      // 4. Show the Auto-Closing Notification Modal
+      if (success) {
+          if (showAlert) showAlert(`${productName} is removed from cart`, 'success');
+      } else {
+          if (showAlert) showAlert('Failed to remove item.', 'danger');
+      }
   };
 
   // --- Checkout Handler ---
   const handleProceedToCheckout = () => {
     if (selectedItems.length === 0) {
        if (showAlert) showAlert('Please select at least one item to checkout.', 'warning');
-       else alert('Please select at least one item to checkout.');
     } else {
       navigate('/checkout');
     }
@@ -117,12 +169,13 @@ const Cart = ({ showAlert }) => {
                   <Card.Title className="fw-bold mb-4">Order Summary</Card.Title>
                   <div className="d-flex justify-content-between my-2">
                     <span>Subtotal ({selectedItems.length} items)</span>
-                    <strong>₱{selectedSubtotal.toFixed(2)}</strong>
+                    {/* UPDATED: Uses local calculation based on Discounted Price */}
+                    <strong>₱{calculatedSubtotal.toFixed(2)}</strong>
                   </div>
                   <hr />
                   <div className="d-flex justify-content-between h5 text-success">
                     <strong>Total</strong>
-                    <strong>₱{selectedSubtotal.toFixed(2)}</strong>
+                    <strong>₱{calculatedSubtotal.toFixed(2)}</strong>
                   </div>
                   <Button 
                     variant="success" 
@@ -139,13 +192,32 @@ const Cart = ({ showAlert }) => {
         )}
       </Container>
 
-      {/* Clear Modal */}
-      <Modal show={showClearModal} onHide={handleCloseClearModal} centered>
-          <Modal.Header closeButton> <Modal.Title>Clear Cart?</Modal.Title> </Modal.Header>
-          <Modal.Body>Are you sure you want to remove all items from your cart?</Modal.Body>
+      {/* Clear Cart Modal */}
+      <Modal 
+        show={showClearModal} 
+        onHide={handleCloseClearModal} 
+        centered
+        backdrop={isClearing ? 'static' : true}
+        keyboard={!isClearing}
+      >
+          <Modal.Header closeButton={!isClearing}> 
+            <Modal.Title>Clear Cart?</Modal.Title> 
+          </Modal.Header>
+          <Modal.Body>
+            Are you sure you want to remove all items from your cart?
+          </Modal.Body>
           <Modal.Footer> 
-              <Button variant="secondary" onClick={handleCloseClearModal}>Cancel</Button> 
-              <Button variant="danger" onClick={handleConfirmClear}>Yes, Clear It</Button> 
+              <Button variant="secondary" onClick={handleCloseClearModal} disabled={isClearing}>
+                Cancel
+              </Button> 
+              <Button variant="danger" onClick={handleConfirmClear} disabled={isClearing}>
+                {isClearing ? (
+                    <>
+                        <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+                        Clearing...
+                    </>
+                ) : 'Yes, Clear It'}
+              </Button> 
           </Modal.Footer>
       </Modal>
 

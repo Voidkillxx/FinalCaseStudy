@@ -84,4 +84,9 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::put('/admin/orders/{id}/status', [OrderController::class, 'updateStatus']);
     Route::apiResource('users', UserController::class)->except(['store']); 
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/checkout', [OrderController::class, 'checkout']);
+    Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']); 
+    Route::put('/orders/{id}/request-cancel', [OrderController::class, 'requestCancel']);
+    Route::put('/orders/{id}/receive', [OrderController::class, 'markAsReceived']);
 });

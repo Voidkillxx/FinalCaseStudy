@@ -19,7 +19,7 @@ return new class extends Migration
             $table->decimal('shipping_fee', 10, 2)->default(50.00); 
             $table->decimal('total_amount', 10, 2); 
             
-            $table->enum('status', ['Pending', 'Processing', 'Cancelled', 'Shipped', 'Delivered'])->default('Pending');
+            $table->enum('status', ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Return Requested', 'Completed'])->default('Pending');
             $table->enum('payment_type', ['Card', 'Cash On Delivery']);
             $table->text('shipping_address');
             $table->timestamps();
